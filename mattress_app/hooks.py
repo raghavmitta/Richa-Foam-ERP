@@ -1,6 +1,5 @@
 import mattress_app
 
-
 app_name = "mattress_app"
 app_title = "Mattress"
 app_publisher = "Hitc Technologies"
@@ -25,15 +24,16 @@ app_license = "mit"
 # ]
 # In hooks.py
 doctype_js = {
-    "Quotation": "public/js/quotation.js",
-    "Sales Order": "public/js/sales_order.js",
-    # "Purchase Order": "public/js/purchase_order.js",
-    # "Customer": "public/js/customer.js"
+	"Quotation": "public/js/quotation.js",
+	"Sales Order": "public/js/sales_order.js",
+	# "Purchase Order": "public/js/purchase_order.js",
+	# "Customer": "public/js/customer.js"
 }
 
-fixtures =[
-    "Custom Field",
-    "Property Setter",
+fixtures = [
+	"Custom Field",
+	"Property Setter",
+	{"dt": "Custom DocPerm", "filters": [["parent", "=", "Sales Order"], ["role", "=", "Guest"]]},
 ]
 
 # Includes in <head>
@@ -153,34 +153,26 @@ fixtures =[
 # Hook on document methods and events
 
 doc_events = {
-    "Item": {
-        "validate": "mattress_app.api.item.create_item_name_doc",
-        "on_trash": "mattress_app.api.item.cleanup_item_name_doc",
-        "before_save": "mattress_app.api.item.remove_description"
-    },
-   
-    "Item Attribute": {
-        "validate": "mattress_app.api.item_variant.sync_thickness_from_item_attribute",
-        "before_update": "mattress_app.api.item_variant.sync_thickness_delete",
-    },
-    "Quotation": {
-        "validate": "mattress_app.api.quotation.rate_lower_warning",
-        "before_save": [
-            "mattress_app.api.quotation.additional_discount",
-            "mattress_app.api.whatsapp_api.generate_public_key"
-        ],
-        "before_submit": "mattress_app.api.quotation.address_mandatory_check"
-    },
-    "Sales Order": {
-        "before_save": [
-            "mattress_app.api.whatsapp_api.generate_public_key",
-            "mattress_app.api.sales_order.add_purchase_mobile"
-        ]
-    },
-    "Purchase Order": {
-        "before_save": "mattress_app.api.whatsapp_api.generate_public_key"
-    }
- }
+	"Item": {
+		"validate": "mattress_app.api.item.create_item_name_doc",
+		"on_trash": "mattress_app.api.item.cleanup_item_name_doc",
+		"before_save": "mattress_app.api.item.remove_description",
+	},
+	"Item Attribute": {
+		"validate": "mattress_app.api.item_variant.sync_thickness_from_item_attribute",
+		"before_update": "mattress_app.api.item_variant.sync_thickness_delete",
+	},
+	"Quotation": {
+		"validate": "mattress_app.api.quotation.rate_lower_warning",
+		"before_save": ["mattress_app.api.quotation.additional_discount"],
+		"before_submit": "mattress_app.api.quotation.address_mandatory_check",
+	},
+	"Sales Order": {
+		"before_print": "mattress_app.api.whatsapp_api.validate_public_key_expiry",
+		"onload": "mattress_app.api.whatsapp_api.validate_public_key_expiry",
+		"before_save": ["mattress_app.api.sales_order.add_purchase_mobile"],
+	},
+}
 
 
 # Scheduled Tasks
@@ -211,11 +203,11 @@ doc_events = {
 
 # Overriding Methods
 # ------------------------------
-# # erpnext item variant file and method name = custom app file and method name 
+# # erpnext item variant file and method name = custom app file and method name
 override_whitelisted_methods = {
-	"erpnext.controllers.item_variant.create_variant" : "mattress_app.api.override.custom_create_variant",
-    "erpnext.controllers.item_variant.enqueue_multiple_variant_creation" :  "mattress_app.api.override.custom_enqueue_multiple_variant_creation",
-    }
+	"erpnext.controllers.item_variant.create_variant": "mattress_app.api.override.custom_create_variant",
+	"erpnext.controllers.item_variant.enqueue_multiple_variant_creation": "mattress_app.api.override.custom_enqueue_multiple_variant_creation",
+}
 
 #
 # each overriding function accepts a `data` argument;
@@ -281,4 +273,3 @@ override_whitelisted_methods = {
 # default_log_clearing_doctypes = {
 # 	"Logging DocType Name": 30  # days to retain logs
 # }
-
