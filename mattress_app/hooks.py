@@ -23,6 +23,7 @@ app_license = "mit"
 # 	}
 # ]
 # In hooks.py
+app_include_js = "/assets/mattress_app/js/payment_utils.js"
 doctype_js = {
 	"Quotation": "public/js/quotation.js",
 	"Sales Order": "public/js/sales_order.js",
@@ -33,7 +34,8 @@ doctype_js = {
 fixtures = [
 	"Custom Field",
 	"Property Setter",
-	{"dt": "Custom DocPerm", "filters": [["parent", "=", "Sales Order"], ["role", "=", "Guest"]]},
+	{"dt": "Custom DocPerm", "filters": [["parent", "=", "Quotation"], ["role", "=", "Guest"]]},
+	{"dt": "Currency", "filters": [["name", "=", "INR"]]},
 ]
 
 # Includes in <head>
@@ -166,10 +168,18 @@ doc_events = {
 		"validate": "mattress_app.api.quotation.rate_lower_warning",
 		"before_save": ["mattress_app.api.quotation.additional_discount"],
 		"before_submit": "mattress_app.api.quotation.address_mandatory_check",
-	},
-	"Sales Order": {
+		"after_insert": "mattress_app.api.advance_linker.handleQuotationAmendmends",
 		"before_print": "mattress_app.api.whatsapp_api.validate_public_key_expiry",
 		"onload": "mattress_app.api.whatsapp_api.validate_public_key_expiry",
+	},
+	"Advance": {
+		"before_insert": "mattress_app.api.advance_linker.validateAndLinkReferences",
+		"after_insert": "mattress_app.api.advance_linker.processNewAdvance",
+	},
+	"Sales Order": {
+		"on_cancel": "mattress_app.api.advance_linker.handleSoCancellation",
+		"on_submit": "mattress_app.api.advance_linker.createOrUpdatePendingPaymentEntry",
+		"after_insert": "mattress_app.api.advance_linker.UpdateAdvanceWithSalesOrderReference",
 		"before_save": ["mattress_app.api.sales_order.add_purchase_mobile"],
 	},
 }

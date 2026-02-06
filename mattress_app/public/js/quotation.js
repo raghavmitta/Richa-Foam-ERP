@@ -1,3 +1,4 @@
+/* global mattress_app */
 frappe.ui.form.on("Quotation Item", {
 	custom_length: (frm, cdt, cdn) => calculate_item(frm, cdt, cdn),
 	custom_width: (frm, cdt, cdn) => calculate_item(frm, cdt, cdn),
@@ -15,6 +16,35 @@ frappe.ui.form.on("Quotation Item", {
 
 frappe.ui.form.on("Quotation", {
 	refresh(frm) {
+		if (!frm.is_new()) mattress_app.utils.render_advance_tracker(frm);
+		if (!frm.is_new() && frm.doc.docstatus === 1) {
+			frappe.call({
+				method: "mattress_app.api.advance_linker.syncAdvanceAndPeOnView",
+				args: {
+					docname: frm.doc.name,
+					doctype: frm.doctype,
+				},
+				callback: function (r) {
+					if (r.message && r.message.updated) {
+						frm.reload_doc();
+					}
+				},
+			});
+		}
+		if (!frm.is_new() && frm.doc.docstatus !== 2) {
+			frm.add_custom_button(__("Record Advance"), function () {
+				mattress_app.utils.add_advance_payment(frm);
+			}).addClass("btn-primary"); // Makes the button blue and easy to see on a tablet
+			frm.add_custom_button(__("WhatsApp"), () => {
+				generate_whatsapp_link(frm);
+			})
+				.addClass("btn-success")
+				.css({
+					border: "1px solid #25D366",
+					color: "#25D366", // Official WhatsApp Green
+					"background-color": "white",
+				});
+		}
 		frm.set_query("custom_thickness", "items", function (doc, cdt, cdn) {
 			let row = locals[cdt][cdn];
 			if (!row.custom_name) {
@@ -31,21 +61,6 @@ frappe.ui.form.on("Quotation", {
 			};
 		});
 	},
-
-	//     if (frm.doc.docstatus === 1) {
-	//         frm.add_custom_button(__("WhatsApp"), () => {
-	//             send_quotation_whatsapp(frm);
-	//         })
-	//             .addClass('btn-success')
-	//             .css({
-	//                 'border': '1px solid #25D366',
-	//                 'color': '#25D366', // Official WhatsApp Green
-	//                 'background-color': 'white'
-	//             });
-	//     }
-
-	// Parent level triggers
-
 	discount_amount: (frm) => frm.events.delayed_calculate(frm),
 	discount_percentage: (frm) => frm.events.delayed_calculate(frm),
 	apply_discount_on: (frm) => frm.events.delayed_calculate(frm),
@@ -94,6 +109,64 @@ frappe.ui.form.on("Quotation", {
 		frm.refresh_field("custom_discount_items_total");
 		frm.refresh_field("custom_other_items_mrp_total");
 		frm.refresh_field("custom_mattress_items_mrp_total");
+	},
+	// This function name MUST match the button's Fieldname
+	custom_submit_advance: function (frm) {
+		// 1. Get all rows that haven't been submitted
+		let pending_rows = (frm.doc.custom_payment_entries || []).filter(
+			(row) => !row.payment_entry_ref
+		);
+
+		if (pending_rows.length === 0) {
+			frappe.msgprint(__("No pending advances to submit."));
+			return;
+		}
+
+		// 2. Ask for confirmation
+		frappe.confirm(__("Submit all pending advances and create vouchers?"), () => {
+			pending_rows.forEach((row) => {
+				frm.trigger("create_single_voucher", row);
+			});
+		});
+	},
+
+	// Helper function to handle the API call for each row
+	create_single_voucher: function (frm, row) {
+		frappe.call({
+			method: "frappe.client.insert",
+			args: {
+				doc: {
+					doctype: "Payment Entry",
+					payment_type: "Receive",
+					party_type: "Customer",
+					party: frm.doc.customer,
+					paid_amount: row.amount,
+					received_amount: row.amount,
+					mode_of_payment: row.mode_of_payment,
+					reference_no: row.transaction_id,
+					references: [
+						{
+							reference_doctype: frm.doc.doctype,
+							reference_name: frm.doc.name,
+							allocated_amount: row.amount,
+						},
+					],
+				},
+			},
+			callback: function (r) {
+				if (!r.exc) {
+					// Update the row in the table
+					frappe.model.set_value(
+						row.doctype,
+						row.name,
+						"payment_entry_ref",
+						r.message.name
+					);
+					frm.save();
+					frappe.show_alert(__("Voucher {0} created", [r.message.name]), 5);
+				}
+			},
+		});
 	},
 });
 
@@ -242,56 +315,51 @@ function sync_non_discount_status(frm, cdt, cdn) {
 			// 1. Set the checkbox
 			frappe.model.set_value(cdt, cdn, "custom_non_discount_item", is_non_discount);
 
-			// 2. Toggle the UI
-			// eslint-disable-next-line no-undef
-			toggle_discount_fields(frm, cdt, cdn, is_non_discount);
-
 			// 3. NOW trigger the calculation (Data is ready!)
 			frm.events.delayed_calculate(frm);
 		},
 	});
 }
 
-// WHATSAPP QUOTATION SENDING LOGIC
-/*function send_quotation_whatsapp(frm) {
-	// 1. Force a refresh if the key is missing but the doc is saved
-	if (!frm.doc.public_print_key && !frm.is_dirty()) {
-		frm.reload_doc();
-	}
+function generate_whatsapp_link(frm) {
+	// Show a loading state for the tablet/mobile users
+	frappe.dom.freeze(__("Generating secure link..."));
 
-	let mobile = frm.doc.contact_mobile || frm.doc.mobile_no;
+	frappe.call({
+		method: "mattress_app.api.whatsapp_api.get_public_print_link", // Adjust path to your Python file
+		args: {
+			doctype: frm.doc.doctype,
+			name: frm.doc.name,
+		},
+		callback: function (r) {
+			frappe.dom.unfreeze();
 
-	if (!mobile) {
-		frappe.msgprint(__("Customer mobile number is missing."));
-		return;
-	}
+			if (r.message) {
+				const pdf_url = r.message;
 
-	frappe.db.get_value("Quotation", frm.doc.name, "custom_public_key").then((r) => {
-		const key = r.message?.custom_public_key;
+				// Handle Phone Number (Checking multiple fields just in case)
+				const phone = frm.doc.contact_mobile || frm.doc.mobile_no;
 
-		if (!key) {
-			frappe.msgprint(
-				__("Access key not generated. Please Save the document to generate one.")
-			);
-			return;
-		}
+				if (!phone) {
+					frappe.msgprint(
+						__("Please ensure a mobile number is entered in the Contact Mobile field.")
+					);
+					return;
+				}
 
-		send_whatsapp_with_key(frm, key);
+				const message =
+					`*Hello ${frm.doc.customer_name},*\n\n` +
+					`Please find your quotation *${frm.doc.custom_quotation_reference}* attached below.\n\n` +
+					`*Total:* ${format_currency(frm.doc.grand_total, frm.doc.currency)}\n\n` +
+					`*Order Pdf Link:*\n${pdf_url}\n\n` +
+					`Regards,\n${frm.doc.company}`;
+
+				// Open WhatsApp in a new tab
+				const wa_url = `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(
+					message
+				)}`;
+				window.open(wa_url, "_blank");
+			}
+		},
 	});
-
-	mobile = mobile.replace(/\D/g, "");
-	const base_url = window.location.origin;
-
-	// Using your specific app path
-	let pdf_url = `${base_url}/api/method/mattress_app.api.whatsapp_api.get_public_print_link?doctype=Quotation&name=${frm.doc.name}&key=${frm.doc.custom_public_key}`;
-
-	let message =
-		`*Hello ${frm.doc.customer_name},*\n\n` +
-		`Please find your quotation *${frm.doc.name}* attached below.\n\n` +
-		`*Total:* ${format_currency(frm.doc.grand_total, frm.doc.currency)}\n\n` +
-		`*Download Link:*\n${pdf_url}\n\n` +
-		`Regards,\n${frm.doc.company}`;
-
-	let url = `https://wa.me/${mobile}?text=${encodeURIComponent(message)}`;
-	window.open(url, "_blank");
-}*/
+}

@@ -6,7 +6,6 @@ from frappe.model.document import Document
 
 
 class ItemName(Document):
-	
 	def on_submit(self):
 		self.create_item()
 

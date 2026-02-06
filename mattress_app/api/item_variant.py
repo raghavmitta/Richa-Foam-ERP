@@ -77,6 +77,7 @@ def sync_thickness_delete_row(doc):
 			frappe.delete_doc("Thickness", t.name, ignore_permissions=True)
 
 
+@frappe.whitelist()
 def get_available_thickness(doctype, txt, searchfield, start, page_len, filters):
 	item_name = filters.get("item_name")
 	# This executes your specific SQL logic to find unique thicknesses for a model
