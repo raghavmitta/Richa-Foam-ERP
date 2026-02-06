@@ -1,5 +1,5 @@
-
 import frappe
+
 
 def create_item_name_doc(doc, method):
 	# frappe.msgprint("method call")
@@ -15,6 +15,7 @@ def create_item_name_doc(doc, method):
 	item_name_doc.item_name = doc.item_name
 	item_name_doc.insert(ignore_permissions=True)
 
+
 def cleanup_item_name_doc(doc, method):
 	# Get the name of the item being deleted
 	deleted_item_name = doc.item_name
@@ -26,11 +27,10 @@ def cleanup_item_name_doc(doc, method):
 		# No other variants exist with this name, safe to delete from custom doctype
 		# Replace 'Custom Item Name Holder' with your actual Doctype name
 		frappe.db.delete("Custom Item Name Holder", {"unique_item_name": deleted_item_name})
-		
+
 		# Optional: Log the deletion
 		# frappe.msgprint(f"Last variant deleted. Removed {deleted_item_name} from registry.")
 
-def remove_description(doc, method):
-		doc.description = ""
 
-		
+def remove_description(doc, method):
+	doc.description = ""

@@ -1,0 +1,16 @@
+[
+ {
+  "currency_name": "INR",
+  "docstatus": 0,
+  "doctype": "Currency",
+  "enabled": 1,
+  "fraction": "Paisa",
+  "fraction_units": 100,
+  "modified": "2026-02-05 13:13:05.777906",
+  "name": "INR",
+  "number_format": "#,##,###.##",
+  "smallest_currency_fraction_value": 10.0,
+  "symbol": "₹",
+  "symbol_on_right": 0
+ }
+]

@@ -1,0 +1,91 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-01-31 22:14:56.272149",
+ "custom": 1,
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "advance_tracking_table_section",
+  "date",
+  "amount",
+  "payment_mode",
+  "payment_reference_number",
+  "quotation_reference",
+  "sale_order_reference"
+ ],
+ "fields": [
+  {
+   "fieldname": "advance_tracking_table_section",
+   "fieldtype": "Section Break",
+   "label": "Advance Tracking Table"
+  },
+  {
+   "default": "Today",
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Date"
+  },
+  {
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Amount"
+ },
+  {
+   "default": "CASH",
+   "fieldname": "payment_mode",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Payment Mode",
+   "options": "CASH\nUPI\nNEFT/BANK TRANSFER"
+  },
+  {
+   "fieldname": "payment_reference_number",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Payment Reference Number",
+   "options": "Payment Entry"
+  },
+  {
+   "fieldname": "quotation_reference",
+   "fieldtype": "Link",
+   "label": "Quotation Reference",
+   "options": "Quotation"
+  },
+  {
+   "fieldname": "sale_order_reference",
+   "fieldtype": "Data",
+   "label": "Sales Order Reference"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-02-03 20:34:19.071988",
+ "modified_by": "Administrator",
+ "module": "Mattress",
+ "name": "Advance",
+ "owner": "richafoam26@gmail.com",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
