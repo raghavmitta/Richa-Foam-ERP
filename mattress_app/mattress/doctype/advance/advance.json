@@ -33,14 +33,13 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Amount"
- },
+  },
   {
-   "default": "CASH",
    "fieldname": "payment_mode",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Payment Mode",
-   "options": "CASH\nUPI\nNEFT/BANK TRANSFER"
+   "options": "Mode of Payment"
   },
   {
    "fieldname": "payment_reference_number",
@@ -64,8 +63,8 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-03 20:34:19.071988",
- "modified_by": "Administrator",
+ "modified": "2026-02-05 16:53:38.610815",
+ "modified_by": "richafoam26@gmail.com",
  "module": "Mattress",
  "name": "Advance",
  "owner": "richafoam26@gmail.com",
