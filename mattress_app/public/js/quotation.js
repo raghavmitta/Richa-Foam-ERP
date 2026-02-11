@@ -323,7 +323,12 @@ function sync_non_discount_status(frm, cdt, cdn) {
 
 function generate_whatsapp_link(frm) {
 	// Show a loading state for the tablet/mobile users
-	frappe.dom.freeze(__("Generating secure link..."));
+	if (!frm.is_dirty()) {
+		frm.reload_doc();
+	}
+
+	// 2. Add a visual "Loading" freeze so the user doesn't click twice on a slow tablet
+	frappe.dom.freeze(__("Generating Quotation Link..."));
 
 	frappe.call({
 		method: "mattress_app.api.whatsapp_api.get_public_print_link", // Adjust path to your Python file
@@ -333,13 +338,12 @@ function generate_whatsapp_link(frm) {
 		},
 		callback: function (r) {
 			frappe.dom.unfreeze();
-
 			if (r.message) {
 				const pdf_url = r.message;
 
 				// Handle Phone Number (Checking multiple fields just in case)
-				const phone = frm.doc.contact_mobile || frm.doc.mobile_no;
-
+				let phone = frm.doc.contact_mobile || frm.doc.mobile_no;
+				phone = phone.replace(/\D/g, "");
 				if (!phone) {
 					frappe.msgprint(
 						__("Please ensure a mobile number is entered in the Contact Mobile field.")
@@ -358,6 +362,10 @@ function generate_whatsapp_link(frm) {
 				const wa_url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 				window.open(wa_url, "_blank");
 			}
+		},
+		error: function (err) {
+			frappe.dom.unfreeze();
+			console.error("WhatsApp Link Error:", err);
 		},
 	});
 }
