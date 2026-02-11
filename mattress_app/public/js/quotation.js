@@ -349,15 +349,13 @@ function generate_whatsapp_link(frm) {
 
 				const message =
 					`*Hello ${frm.doc.customer_name},*\n\n` +
-					`Please find your quotation *${frm.doc.custom_quotation_reference}* attached below.\n\n` +
-					`*Total:* ${format_currency(frm.doc.grand_total, frm.doc.currency)}\n\n` +
+					`Please find your quotation *${frm.doc.name}* attached below.\n\n` +
+					`*Total:* ${format_currency(frm.doc.rounded_total, frm.doc.currency)}\n\n` +
 					`*Order Pdf Link:*\n${pdf_url}\n\n` +
 					`Regards,\n${frm.doc.company}`;
 
 				// Open WhatsApp in a new tab
-				const wa_url = `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(
-					message
-				)}`;
+				const wa_url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 				window.open(wa_url, "_blank");
 			}
 		},

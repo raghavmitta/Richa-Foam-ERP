@@ -90,5 +90,9 @@ def get_available_thickness(doctype, txt, searchfield, start, page_len, filters)
     """,
 		(item_name),
 	)
+	if not thickness:
+		raw_list = frappe.get_list("Thickness", pluck="value")
+		thickness = [(t,) for t in raw_list]
+
 	formatted_list = [[f"{t[0]}MM"] for t in thickness]
 	return formatted_list

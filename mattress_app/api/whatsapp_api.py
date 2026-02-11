@@ -49,9 +49,9 @@ def get_public_print_link(doctype, name):
 	customer_type = frappe.db.get_value("Customer", doc, "customer_type")
 
 	if customer_type == "Individual":
-		print_format = "Sales Order1"
+		print_format = "Quotation-1"
 	elif customer_type == "Company":
-		print_format = "Sales Order2"
+		print_format = "Quotation-2"
 
 	base_url = frappe.utils.get_url()
 	return f"{base_url}/printview?doctype={doctype}&name={name}&key={public_key}&format={print_format}"
