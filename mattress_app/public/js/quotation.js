@@ -371,9 +371,9 @@ function generate_whatsapp_link(frm) {
 
 	frappe.db.get_value("Customer", frm.doc.customer_name, "customer_type", (r) => {
 		const customer_type = r ? r.customer_type : "Individual";
-		let print_format = customer_type === "Company" ? "Quotation-2" : "Quotation-1";
-		let base_url = window.location.origin;
-		let pdf_url = `${base_url}/printview?doctype=${frm.doc.doctype}&name=${frm.doc.name}&key=${frm.doc.key}&format=${print_format}`;
+		const print_format = customer_type === "Company" ? "Quotation-2" : "Quotation-1";
+		const base_url = frappe.utils.get_origin();
+		const pdf_url = `${base_url}/printview?doctype=${frm.doc.doctype}&name=${frm.doc.name}&key=${frm.doc.key}&format=${print_format}`;
 
 		const message =
 			`*Hello ${frm.doc.customer_name},*\n\n` +
