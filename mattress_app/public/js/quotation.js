@@ -370,12 +370,12 @@ function generate_whatsapp_link(frm) {
 	}
 
 	frappe.db.get_value("Customer", frm.doc.customer_name, "customer_type", (r) => {
-		const customer_type = r ? r.customer_type : "Individual";
-		const print_format = customer_type === "Company" ? "Quotation-2" : "Quotation-1";
-		const base_url = "https://richafoam.m.frappe.cloud";
-		const pdf_url = `${base_url}/printview?doctype=${frm.doc.doctype}&name=${frm.doc.name}&key=${frm.doc.key}&format=${print_format}`;
+		let customer_type = r ? r.customer_type : "Individual";
+		let print_format = customer_type === "Company" ? "Quotation-2" : "Quotation-1";
+		let base_url = "https://richafoam.m.frappe.cloud";
+		let pdf_url = `${base_url}/printview?doctype=${frm.doc.doctype}&name=${frm.doc.name}&key=${frm.doc.key}&format=${print_format}`;
 
-		const message =
+		let message =
 			`*Hello ${frm.doc.customer_name},*\n\n` +
 			`Please find your quotation *${frm.doc.name}* attached below.\n\n` +
 			`*Total:* ${format_currency(frm.doc.rounded_total, frm.doc.currency)}\n\n` +
@@ -383,7 +383,8 @@ function generate_whatsapp_link(frm) {
 			`Regards,\n${frm.doc.company}`;
 
 		// Open WhatsApp in a new tab
-		const wa_url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-		window.open(wa_url, "_blank");
+		let url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+
+		window.open(url, "_blank");
 	});
 }
