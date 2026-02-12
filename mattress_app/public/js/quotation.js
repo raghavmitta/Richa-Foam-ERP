@@ -369,7 +369,7 @@ function generate_whatsapp_link(frm) {
 		return;
 	}
 
-	frappe.db.get_value("Customer", frm.doc.customer, "customer_type", (r) => {
+	frappe.db.get_value("Customer", frm.doc.customer_name, "customer_type", (r) => {
 		const customer_type = r ? r.customer_type : "Individual";
 		let print_format = customer_type === "Company" ? "Quotation-2" : "Quotation-1";
 		let base_url = window.location.origin;
