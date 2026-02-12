@@ -372,7 +372,7 @@ function generate_whatsapp_link(frm) {
 	frappe.db.get_value("Customer", frm.doc.customer_name, "customer_type", (r) => {
 		const customer_type = r ? r.customer_type : "Individual";
 		const print_format = customer_type === "Company" ? "Quotation-2" : "Quotation-1";
-		const base_url = frappe.utils.get_origin();
+		const base_url = "https://richafoam.m.frappe.cloud";
 		const pdf_url = `${base_url}/printview?doctype=${frm.doc.doctype}&name=${frm.doc.name}&key=${frm.doc.key}&format=${print_format}`;
 
 		const message =
