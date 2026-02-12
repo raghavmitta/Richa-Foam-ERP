@@ -61,6 +61,19 @@ frappe.ui.form.on("Quotation", {
 			};
 		});
 	},
+	party_name: function (frm) {
+		if (frm.doc.party_name) {
+			frappe.db.get_value("Customer", frm.doc.party_name, "customer_type", (r) => {
+				if (r && r.customer_type === "Company") {
+					// Automatically set to 'Hotel' terms for Commercial group
+					frm.set_value("tc_name", "T&C Hotel");
+				} else {
+					// Optional: Set a default for everyone else
+					frm.set_value("tc_name", "T&C General");
+				}
+			});
+		}
+	},
 	discount_amount: (frm) => frm.events.delayed_calculate(frm),
 	discount_percentage: (frm) => frm.events.delayed_calculate(frm),
 	apply_discount_on: (frm) => frm.events.delayed_calculate(frm),
@@ -323,49 +336,54 @@ function sync_non_discount_status(frm, cdt, cdn) {
 
 function generate_whatsapp_link(frm) {
 	// Show a loading state for the tablet/mobile users
-	if (!frm.is_dirty()) {
-		frm.reload_doc();
+	if (!frm.is_dirty()) frm.reload_doc();
+	const ninety_days_ago = frappe.datetime.add_days(frappe.datetime.nowdate(), -90);
+	if (
+		!frm.doc.key ||
+		!frm.doc.custom_key_creation_time ||
+		frm.doc.custom_key_creation_time < ninety_days_ago
+	) {
+		frappe.dom.freeze(__("Refreshing Security Key..."));
+		frappe.call({
+			method: "mattress_app.api.whatsapp_api.generate_public_key",
+			args: {
+				doc: frm.doc.name,
+				method: null,
+			},
+			callback: function () {
+				frappe.dom.unfreeze();
+				frm.reload_doc();
+			},
+		});
+		return; // Wait for the reload to finish before proceeding
+	}
+	// 2. Add a visual "Loading" freeze so the user doesn't click twice on a slow tablet
+
+	// Handle Phone Number (Checking multiple fields just in case)
+	let phone = frm.doc.contact_mobile || frm.doc.mobile_no;
+	phone = phone.replace(/\D/g, "");
+	if (!phone) {
+		frappe.msgprint(
+			__("Please ensure a mobile number is entered in the Contact Mobile field.")
+		);
+		return;
 	}
 
-	// 2. Add a visual "Loading" freeze so the user doesn't click twice on a slow tablet
-	frappe.dom.freeze(__("Generating Quotation Link..."));
+	frappe.db.get_value("Customer", frm.doc.customer, "customer_type", (r) => {
+		const customer_type = r ? r.customer_type : "Individual";
+		let print_format = customer_type === "Company" ? "Quotation-2" : "Quotation-1";
+		let base_url = window.location.origin;
+		let pdf_url = `${base_url}/printview?doctype=${frm.doc.doctype}&name=${frm.doc.name}&key=${frm.doc.key}&format=${print_format}`;
 
-	frappe.call({
-		method: "mattress_app.api.whatsapp_api.get_public_print_link", // Adjust path to your Python file
-		args: {
-			doctype: frm.doc.doctype,
-			name: frm.doc.name,
-		},
-		callback: function (r) {
-			frappe.dom.unfreeze();
-			if (r.message) {
-				const pdf_url = r.message;
+		const message =
+			`*Hello ${frm.doc.customer_name},*\n\n` +
+			`Please find your quotation *${frm.doc.name}* attached below.\n\n` +
+			`*Total:* ${format_currency(frm.doc.rounded_total, frm.doc.currency)}\n\n` +
+			`*Order Pdf Link:*\n${pdf_url}\n\n` +
+			`Regards,\n${frm.doc.company}`;
 
-				// Handle Phone Number (Checking multiple fields just in case)
-				let phone = frm.doc.contact_mobile || frm.doc.mobile_no;
-				phone = phone.replace(/\D/g, "");
-				if (!phone) {
-					frappe.msgprint(
-						__("Please ensure a mobile number is entered in the Contact Mobile field.")
-					);
-					return;
-				}
-
-				const message =
-					`*Hello ${frm.doc.customer_name},*\n\n` +
-					`Please find your quotation *${frm.doc.name}* attached below.\n\n` +
-					`*Total:* ${format_currency(frm.doc.rounded_total, frm.doc.currency)}\n\n` +
-					`*Order Pdf Link:*\n${pdf_url}\n\n` +
-					`Regards,\n${frm.doc.company}`;
-
-				// Open WhatsApp in a new tab
-				const wa_url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-				window.open(wa_url, "_blank");
-			}
-		},
-		error: function (err) {
-			frappe.dom.unfreeze();
-			console.error("WhatsApp Link Error:", err);
-		},
+		// Open WhatsApp in a new tab
+		const wa_url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+		window.open(wa_url, "_blank");
 	});
 }
