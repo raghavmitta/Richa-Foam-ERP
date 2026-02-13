@@ -181,9 +181,9 @@ doc_events = {
 	},
 	"Sales Order": {
 		"on_cancel": "mattress_app.api.advance_linker.handleSoCancellation",
-		"on_submit": "mattress_app.api.advance_linker.createOrUpdatePendingPaymentEntry",
 		"after_insert": "mattress_app.api.advance_linker.UpdateAdvanceWithSalesOrderReference",
 		"before_save": "mattress_app.api.sales_order.add_purchase_mobile",
+		"on_submit": "mattress_app.api.advance_linker.createOrUpdatePendingPaymentEntry",
 	},
 }
 

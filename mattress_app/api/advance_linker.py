@@ -71,7 +71,7 @@ def createOrUpdatePendingPaymentEntry(doc, method=None):
 	advances = getAdvanceDocFromSaleOrder(doc)
 	if not advances:
 		return
-
+	doc.db_set("advance_paid", 0)
 	for adv in advances:
 		adv_doc = frappe.get_doc("Advance", adv)
 		try:
@@ -126,7 +126,8 @@ def createOrUpdatePendingPaymentEntry(doc, method=None):
 			else:
 				# --- CREATE NEW PAYMENT ENTRY ---
 				# This runs if no PE existed OR if the old PE was busy with another order
-				new_pe_name = createNewPaymentEntry(doc.name, adv_doc)
+				if not adv_doc.payment_reference_number:
+					new_pe_name = createNewPaymentEntry(doc.name, adv_doc)
 
 			# Update the Advance Tracker
 
