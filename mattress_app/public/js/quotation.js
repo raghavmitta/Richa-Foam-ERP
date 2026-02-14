@@ -60,7 +60,7 @@ frappe.ui.form.on("Quotation", {
 			frm.add_custom_button(__("Record Advance"), function () {
 				mattress_app.utils.add_advance_payment(frm);
 			}).addClass("btn-primary"); // Makes the button blue and easy to see on a tablet
-			frm.add_custom_button(__("WhatsApp"), () => {
+			frm.add_custom_button(__("WA"), () => {
 				generate_whatsapp_link(frm);
 			})
 				.addClass("btn-success")
@@ -384,7 +384,7 @@ function generate_whatsapp_link(frm) {
 	// 2. Add a visual "Loading" freeze so the user doesn't click twice on a slow tablet
 
 	// Handle Phone Number (Checking multiple fields just in case)
-	let phone = frm.doc.contact_mobile || frm.doc.mobile_no;
+	let phone = frm.doc.contact_mobile;
 	phone = phone.replace(/\D/g, "");
 	if (!phone) {
 		frappe.msgprint(
@@ -396,7 +396,7 @@ function generate_whatsapp_link(frm) {
 	let customer_type = frm.doc.custom_customer_type || "Individual";
 
 	let print_format = customer_type === "Company" ? "Quotation-2" : "Quotation-1";
-	let base_url = window.location.origin;
+	const base_url = `https://richafoam.m.frappe.cloud`;
 	let pdf_url = `${base_url}/printview?doctype=${frm.doc.doctype}&name=${frm.doc.name}&key=${frm.doc.key}&format=${print_format}`;
 
 	let message =
