@@ -334,7 +334,7 @@ function sync_non_discount_status(frm, cdt, cdn) {
 	});
 }
 
-function generate_whatsapp_link(frm) {
+async function generate_whatsapp_link(frm) {
 	// Show a loading state for the tablet/mobile users
 	if (!frm.is_dirty()) frm.reload_doc();
 	const ninety_days_ago = frappe.datetime.add_days(frappe.datetime.nowdate(), -90);
@@ -368,23 +368,34 @@ function generate_whatsapp_link(frm) {
 		);
 		return;
 	}
+	const r = await frappe.db.get_value("Customer", frm.doc.customer_name, "customer_type");
 
-	frappe.db.get_value("Customer", frm.doc.customer_name, "customer_type", (r) => {
-		let customer_type = r ? r.customer_type : "Individual";
-		let print_format = customer_type === "Company" ? "Quotation-2" : "Quotation-1";
-		let base_url = "https://richafoam.m.frappe.cloud";
-		let pdf_url = `${base_url}/printview?doctype=${frm.doc.doctype}&name=${frm.doc.name}&key=${frm.doc.key}&format=${print_format}`;
+	let customer_type = r ? r.customer_type : "Individual";
 
-		let message =
-			`*Hello ${frm.doc.customer_name},*\n\n` +
-			`Please find your quotation *${frm.doc.name}* attached below.\n\n` +
-			`*Total:* ${format_currency(frm.doc.rounded_total, frm.doc.currency)}\n\n` +
-			`*Order Pdf Link:*\n${pdf_url}\n\n` +
-			`Regards,\n${frm.doc.company}`;
+	let print_format = customer_type === "Company" ? "Quotation-2" : "Quotation-1";
+	let base_url = window.location.origin;
+	let pdf_url = `${base_url}/printview?doctype=${frm.doc.doctype}&name=${frm.doc.name}&key=${frm.doc.key}&format=${print_format}`;
 
-		// Open WhatsApp in a new tab
-		let url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+	let message =
+		`*Hello ${frm.doc.customer_name},*\n\n` +
+		`Please find your quotation *${frm.doc.name}* attached below.\n\n` +
+		`*Total:* ${format_currency(frm.doc.rounded_total, frm.doc.currency)}\n\n` +
+		`*Order Pdf Link:*\n${pdf_url}\n\n` +
+		`Regards,\n${frm.doc.company}`;
 
-		window.open(url, "_blank");
-	});
+	// Open WhatsApp in a new tab
+	let url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+
+	const wa_window = window.open(url, "_blank");
+
+	if (!wa_window) {
+		frappe.warn(
+			__("Popup Blocked"),
+			__("The session or browser blocked the link. Click below to continue:"),
+			() => {
+				window.open(url, "_blank");
+			},
+			__("Open WhatsApp")
+		);
+	}
 }
