@@ -7,7 +7,7 @@ frappe.ui.form.on("Sales Order", {
 				mattress_app.utils.add_advance_payment(frm);
 			}).addClass("btn-primary"); // Makes the button blue and easy to see on a tablet
 		}
-		if (frm.doc.docstatus === 1) {
+		if (!frm.is_new() && frm.doc.docstatus === 1) {
 			frappe.call({
 				method: "mattress_app.api.advance_linker.syncAdvanceAndPeOnView",
 				args: {

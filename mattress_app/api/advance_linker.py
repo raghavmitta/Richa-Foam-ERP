@@ -188,8 +188,12 @@ def handleSoCancellation(doc, method=None):
 	if not advances:
 		return
 	for adv_name in advances:
-		adv = frappe.get_doc("Advance", adv_name)
-		frappe.db.set_value("Advance", adv, "sale_order_reference", None)
+		frappe.log_error(
+			title="So Cancellation Detected",
+			message=f"Processing Advance {adv_name} for Sales Order {doc.name}",
+		)
+
+		frappe.db.set_value("Advance", adv_name, "sale_order_reference", None)
 
 
 @frappe.whitelist()
