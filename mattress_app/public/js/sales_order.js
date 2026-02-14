@@ -41,9 +41,6 @@ function strip_html(html) {
 // WHATSAPP SALES ORDER SENDING LOGIC FOR DINESH BHAI
 function send_whatsapp(frm) {
 	// 1. Force a refresh if the key is missing but the doc is saved
-	if (!frm.is_dirty()) {
-		frm.reload_doc();
-	}
 
 	let mobile = frm.doc.custom_purchase_mobile;
 
@@ -57,7 +54,6 @@ function send_whatsapp(frm) {
 	let advance_history_text = "";
 	frappe.call({
 		method: "frappe.client.get_list",
-		async: false,
 		args: {
 			doctype: "Advance",
 			filters: { sale_order_reference: frm.doc.name },
@@ -76,9 +72,12 @@ function send_whatsapp(frm) {
 				});
 				advance_history_text += `\n`;
 			}
+			execute_whatsapp_redirect(frm, mobile, advance_history_text);
 		},
 	});
+}
 
+function execute_whatsapp_redirect(frm, mobile, advance_history_text) {
 	// Calculate the Balance Due manually
 
 	let advance = frm.doc.advance_paid || 0;

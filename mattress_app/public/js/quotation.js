@@ -361,7 +361,6 @@ function sync_non_discount_status(frm, cdt, cdn) {
 
 function generate_whatsapp_link(frm) {
 	// Show a loading state for the tablet/mobile users
-	if (!frm.is_dirty()) frm.reload_doc();
 	const ninety_days_ago = frappe.datetime.add_days(frappe.datetime.nowdate(), -90);
 	if (
 		!frm.doc.key ||
