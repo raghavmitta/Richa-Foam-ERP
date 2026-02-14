@@ -16,7 +16,32 @@ frappe.ui.form.on("Quotation Item", {
 
 frappe.ui.form.on("Quotation", {
 	refresh(frm) {
-		if (!frm.is_new()) mattress_app.utils.render_advance_tracker(frm);
+		if (!frm.is_new()) {
+			mattress_app.utils.render_advance_tracker(frm);
+			if (frm.doc.party_name && !frm.doc.custom_customer_type) {
+				frappe.db.get_value("Customer", frm.doc.party_name, "customer_type", (r) => {
+					if (r && r.customer_type) {
+						// Use db_set to update the database directly without making the form "dirty"
+						frappe.call({
+							method: "frappe.client.set_value",
+							args: {
+								doctype: frm.doc.doctype,
+								name: frm.doc.name,
+								fieldname: "custom_customer_type",
+								value: r.customer_type,
+							},
+							callback: function () {
+								// Update the local doc value so the WhatsApp button can see it immediately
+								frm.doc.custom_customer_type = r.customer_type;
+								// Optionally refresh just the field, not the whole page
+								frm.refresh_field("custom_customer_type");
+							},
+						});
+					}
+				});
+			}
+		}
+
 		if (!frm.is_new() && frm.doc.docstatus === 1) {
 			frappe.call({
 				method: "mattress_app.api.advance_linker.syncAdvanceAndPeOnView",
@@ -334,7 +359,7 @@ function sync_non_discount_status(frm, cdt, cdn) {
 	});
 }
 
-async function generate_whatsapp_link(frm) {
+function generate_whatsapp_link(frm) {
 	// Show a loading state for the tablet/mobile users
 	if (!frm.is_dirty()) frm.reload_doc();
 	const ninety_days_ago = frappe.datetime.add_days(frappe.datetime.nowdate(), -90);
@@ -368,9 +393,8 @@ async function generate_whatsapp_link(frm) {
 		);
 		return;
 	}
-	const r = await frappe.db.get_value("Customer", frm.doc.customer_name, "customer_type");
 
-	let customer_type = r ? r.customer_type : "Individual";
+	let customer_type = frm.doc.custom_customer_type || "Individual";
 
 	let print_format = customer_type === "Company" ? "Quotation-2" : "Quotation-1";
 	let base_url = window.location.origin;
@@ -386,16 +410,5 @@ async function generate_whatsapp_link(frm) {
 	// Open WhatsApp in a new tab
 	let url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 
-	const wa_window = window.open(url, "_blank");
-
-	if (!wa_window) {
-		frappe.warn(
-			__("Popup Blocked"),
-			__("The session or browser blocked the link. Click below to continue:"),
-			() => {
-				window.open(url, "_blank");
-			},
-			__("Open WhatsApp")
-		);
-	}
+	window.open(url, "_blank");
 }
