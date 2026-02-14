@@ -403,18 +403,5 @@ function generate_whatsapp_link(frm) {
 
 	// Open WhatsApp in a new tab
 	let url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-	frappe.call({
-		method: "frappe.utils.error_log.make_error_log",
-		args: {
-			title: "WhatsApp Debug - " + frm.doc.name,
-			export_data: JSON.stringify({
-				phone: phone,
-				key: frm.doc.key,
-				customer_type: frm.doc.custom_customer_type,
-				pdf_url: pdf_url,
-			}),
-		},
-	});
-
 	window.open(url, "_blank");
 }
