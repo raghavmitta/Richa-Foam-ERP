@@ -361,7 +361,7 @@ function sync_non_discount_status(frm, cdt, cdn) {
 
 function generate_whatsapp_link(frm) {
 	// Show a loading state for the tablet/mobile users
-	if (!frm.doc.key || !frm.doc.custom_key_creation_time) {
+	/*if (!frm.doc.key || !frm.doc.custom_key_creation_time) {
 		frappe.dom.freeze(__("Refreshing Security Key..."));
 		frappe.call({
 			method: "mattress_app.api.whatsapp_api.generate_public_key",
@@ -375,7 +375,7 @@ function generate_whatsapp_link(frm) {
 			},
 		});
 		return; // Wait for the reload to finish before proceeding
-	}
+	}*/
 	// 2. Add a visual "Loading" freeze so the user doesn't click twice on a slow tablet
 
 	// Handle Phone Number (Checking multiple fields just in case)
@@ -388,13 +388,13 @@ function generate_whatsapp_link(frm) {
 		return;
 	}
 
-	let customer_type = frm.doc.custom_customer_type || "Individual";
+	const customer_type = frm.doc.custom_customer_type || "Individual";
 
-	let print_format = customer_type === "Company" ? "Quotation-2" : "Quotation-1";
-	const base_url = `https://richafoam.m.frappe.cloud`;
-	let pdf_url = `${base_url}/printview?doctype=${frm.doc.doctype}&name=${frm.doc.name}&key=${frm.doc.key}&format=${print_format}`;
+	const print_format = customer_type === "Company" ? "Quotation-2" : "Quotation-1";
+	const base_url = window.location.origin;
+	const pdf_url = `${base_url}/printview?doctype=${frm.doc.doctype}&name=${frm.doc.name}&key=${frm.doc.key}&format=${print_format}`;
 
-	let message =
+	const message =
 		`*Hello ${frm.doc.customer_name},*\n\n` +
 		`Please find your quotation *${frm.doc.name}* attached below.\n\n` +
 		`*Total:* ${format_currency(frm.doc.rounded_total, frm.doc.currency)}\n\n` +
@@ -402,6 +402,6 @@ function generate_whatsapp_link(frm) {
 		`Regards,\n${frm.doc.company}`;
 
 	// Open WhatsApp in a new tab
-	let url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+	const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 	window.open(url, "_blank");
 }
