@@ -172,8 +172,6 @@ doc_events = {
 		],
 		"before_submit": "mattress_app.api.quotation.address_mandatory_check",
 		"after_insert": ["mattress_app.api.advance_linker.handleQuotationAmendmends"],
-		"before_print": "mattress_app.api.whatsapp_api.validate_public_key_expiry",
-		"onload": "mattress_app.api.whatsapp_api.validate_public_key_expiry",
 	},
 	"Advance": {
 		"before_insert": "mattress_app.api.advance_linker.validateAndLinkReferences",
