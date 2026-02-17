@@ -419,12 +419,9 @@ function generate_whatsapp_link(frm) {
 
 	// 4. Encode the WHOLE message for the final WhatsApp Link
 	const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-	window.open(url, "_blank");
-
-	// Open WhatsApp in a new tab
 
 	// 2. The Modern Clipboard API call
-	/*if (navigator.clipboard && window.isSecureContext) {
+	if (navigator.clipboard && window.isSecureContext) {
 		// Modern approach
 		navigator.clipboard
 			.writeText(url)
@@ -444,7 +441,7 @@ function generate_whatsapp_link(frm) {
 	} else {
 		// Fallback for non-secure contexts (http) or very old browsers
 		show_manual_copy_dialog(url);
-	}*/
+	}
 }
 
 // Fallback function in case the browser blocks automatic copying
