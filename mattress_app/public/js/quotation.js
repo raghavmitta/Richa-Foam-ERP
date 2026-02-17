@@ -391,6 +391,9 @@ function generate_whatsapp_link(frm) {
 		);
 		return;
 	}
+	if (phone.length === 10) {
+		phone = "91" + phone;
+	}
 
 	const customer_type = frm.doc.custom_customer_type || "Individual";
 
