@@ -407,20 +407,47 @@ function generate_whatsapp_link(frm) {
 
 	// Open WhatsApp in a new tab
 	const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+	// 2. The Modern Clipboard API call
+	if (navigator.clipboard && window.isSecureContext) {
+		// Modern approach
+		navigator.clipboard
+			.writeText(url)
+			.then(() => {
+				frappe.show_alert(
+					{
+						message: __("Link copied to clipboard!"),
+						indicator: "green",
+					},
+					5
+				);
+			})
+			.catch((err) => {
+				// Fallback to Dialog if clipboard fails
+				show_manual_copy_dialog(url);
+			});
+	} else {
+		// Fallback for non-secure contexts (http) or very old browsers
+		show_manual_copy_dialog(url);
+	}
+}
+
+// Fallback function in case the browser blocks automatic copying
+function show_manual_copy_dialog(text) {
 	let d = new frappe.ui.Dialog({
-		title: __("Send WhatsApp"),
+		title: __("Copy Link"),
 		fields: [
 			{
-				fieldtype: "HTML",
-				fieldname: "link_button",
-				options: `<div style="text-align:center; padding:20px;">
-                            <p>WhatsApp Link is ready for ${frm.doc.customer_name}</p>
-                            <a href="${url}" target="_blank" class="btn btn-success btn-lg" style="width:100%; color:white;">
-                                🚀 OPEN WHATSAPP NOW
-                            </a>
-                          </div>`,
+				label: __("Copy the text below:"),
+				fieldtype: "Small Text",
+				fieldname: "copy_text",
+				default: text,
+				read_only: 0, // Leave it editable so they can select it
 			},
 		],
+		primary_action_label: __("Done"),
+		primary_action() {
+			d.hide();
+		},
 	});
 	d.show();
 }
