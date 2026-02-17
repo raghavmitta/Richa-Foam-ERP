@@ -360,8 +360,12 @@ function sync_non_discount_status(frm, cdt, cdn) {
 }
 
 function generate_whatsapp_link(frm) {
-	// Show a loading state for the tablet/mobile users
-	/*if (!frm.doc.key || !frm.doc.custom_key_creation_time) {
+	const ninety_days_ago = frappe.datetime.add_days(frappe.datetime.nowdate(), -90);
+	if (
+		!frm.doc.key ||
+		!frm.doc.custom_key_creation_time ||
+		frm.doc.custom_key_creation_time < ninety_days_ago
+	) {
 		frappe.dom.freeze(__("Refreshing Security Key..."));
 		frappe.call({
 			method: "mattress_app.api.whatsapp_api.generate_public_key",
@@ -375,7 +379,7 @@ function generate_whatsapp_link(frm) {
 			},
 		});
 		return; // Wait for the reload to finish before proceeding
-	}*/
+	}
 	// 2. Add a visual "Loading" freeze so the user doesn't click twice on a slow tablet
 
 	// Handle Phone Number (Checking multiple fields just in case)
@@ -403,5 +407,20 @@ function generate_whatsapp_link(frm) {
 
 	// Open WhatsApp in a new tab
 	const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-	window.open(url, "_blank");
+	let d = new frappe.ui.Dialog({
+		title: __("Send WhatsApp"),
+		fields: [
+			{
+				fieldtype: "HTML",
+				fieldname: "link_button",
+				options: `<div style="text-align:center; padding:20px;">
+                            <p>WhatsApp Link is ready for ${frm.doc.customer_name}</p>
+                            <a href="${url}" target="_blank" class="btn btn-success btn-lg" style="width:100%; color:white;">
+                                🚀 OPEN WHATSAPP NOW
+                            </a>
+                          </div>`,
+			},
+		],
+	});
+	d.show();
 }
