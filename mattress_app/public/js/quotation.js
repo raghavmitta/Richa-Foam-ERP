@@ -396,13 +396,18 @@ function generate_whatsapp_link(frm) {
 
 	const print_format = customer_type === "Company" ? "Quotation-2" : "Quotation-1";
 	const base_url = window.location.origin;
-	const pdf_url = `${base_url}/printview?doctype=${frm.doc.doctype}&name=${frm.doc.name}&key=${frm.doc.key}&format=${print_format}`;
+	const encoded_pdf_url =
+		`${base_url}/printview` +
+		`?doctype=${encodeURIComponent(frm.doc.doctype)}` +
+		`&name=${encodeURIComponent(frm.doc.name)}` +
+		`&key=${encodeURIComponent(frm.doc.key)}` +
+		`&format=${encodeURIComponent(print_format)}`;
 
 	const message =
 		`*Hello ${frm.doc.customer_name},*\n\n` +
 		`Please find your quotation *${frm.doc.name}* attached below.\n\n` +
 		`*Total:* ${format_currency(frm.doc.rounded_total, frm.doc.currency)}\n\n` +
-		`*Order Pdf Link:*\n${pdf_url}\n\n` +
+		`*Order Pdf Link:*\n${encoded_pdf_url}\n\n` +
 		`Regards,\n${frm.doc.company}`;
 
 	// Open WhatsApp in a new tab
