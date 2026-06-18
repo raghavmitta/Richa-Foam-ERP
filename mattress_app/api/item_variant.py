@@ -80,19 +80,42 @@ def sync_thickness_delete_row(doc):
 @frappe.whitelist()
 def get_available_thickness(doctype, txt, searchfield, start, page_len, filters):
 	item_name = filters.get("item_name")
-	# This executes your specific SQL logic to find unique thicknesses for a model
-	thickness = frappe.db.sql(
-		"""
-        SELECT DISTINCT attribute_value
-        FROM `tabItem Variant Attribute`
-        WHERE variant_of = %s
-        AND attribute = 'Thickness mm'
-    """,
-		(item_name),
-	)
-	if not thickness:
-		raw_list = frappe.get_list("Thickness", pluck="value")
-		thickness = [(t,) for t in raw_list]
+	values = set()
 
-	formatted_list = [[f"{t[0]}MM"] for t in thickness]
-	return formatted_list
+	# 1) NEW area items via the custom_thickness_link field
+	rows = frappe.get_all(
+		"Item",
+		filters={"item_name": item_name, "custom_thickness_link": ["is", "set"]},
+		fields=["custom_thickness_link"],
+	)
+	thk_names = {r["custom_thickness_link"] for r in rows if r.get("custom_thickness_link")}
+	for thk_name in thk_names:
+		val = frappe.db.get_value("Thickness", thk_name, "value")
+		if val is not None:
+			values.add(str(val).strip())
+
+	# 2) OLD variants: thickness attribute values among this family's variants
+	old = frappe.db.sql(
+		"""
+		SELECT DISTINCT attribute_value
+		FROM `tabItem Variant Attribute`
+		WHERE variant_of = %s AND attribute = 'Thickness mm'
+		""",
+		(item_name,),
+	)
+	for (val,) in old:
+		if val is not None:
+			values.add(str(val).strip())
+
+	# 3) Fallback ONLY if nothing found at all
+	if not values:
+		raw_list = frappe.get_list("Thickness", pluck="value")
+		values = {str(v).strip() for v in raw_list if v is not None}
+
+	def _key(v):
+		try:
+			return (0, float(v))
+		except (TypeError, ValueError):
+			return (1, v)
+
+	return [[f"{v}MM"] for v in sorted(values, key=_key)]

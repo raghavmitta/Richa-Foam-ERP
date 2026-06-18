@@ -24,6 +24,7 @@ app_license = "mit"
 # ]
 # In hooks.py
 app_include_js = "/assets/mattress_app/js/payment_utils.js"
+doctype_list_js = {"Item": "public/js/bulk_create_mattress.js"}
 doctype_js = {
 	"Quotation": "public/js/quotation.js",
 	"Sales Order": "public/js/sales_order.js",
@@ -220,6 +221,8 @@ doc_events = {
 override_whitelisted_methods = {
 	"erpnext.controllers.item_variant.create_variant": "mattress_app.api.override.custom_create_variant",
 	"erpnext.controllers.item_variant.enqueue_multiple_variant_creation": "mattress_app.api.override.custom_enqueue_multiple_variant_creation",
+	"erpnext.stock.get_item_details.get_item_details": "mattress_app.api.area_pricing.get_item_details",
+	"erpnext.stock.get_item_details.apply_price_list": "mattress_app.api.area_pricing.apply_price_list",
 }
 
 #

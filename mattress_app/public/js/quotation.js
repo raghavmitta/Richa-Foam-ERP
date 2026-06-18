@@ -21,7 +21,6 @@ frappe.ui.form.on("Quotation", {
 			if (frm.doc.party_name && !frm.doc.custom_customer_type) {
 				frappe.db.get_value("Customer", frm.doc.party_name, "customer_type", (r) => {
 					if (r && r.customer_type) {
-						// Use db_set to update the database directly without making the form "dirty"
 						frappe.call({
 							method: "frappe.client.set_value",
 							args: {
@@ -31,9 +30,7 @@ frappe.ui.form.on("Quotation", {
 								value: r.customer_type,
 							},
 							callback: function () {
-								// Update the local doc value so the WhatsApp button can see it immediately
 								frm.doc.custom_customer_type = r.customer_type;
-								// Optionally refresh just the field, not the whole page
 								frm.refresh_field("custom_customer_type");
 							},
 						});
@@ -59,14 +56,14 @@ frappe.ui.form.on("Quotation", {
 		if (!frm.is_new() && frm.doc.docstatus !== 2) {
 			frm.add_custom_button(__("Record Advance"), function () {
 				mattress_app.utils.add_advance_payment(frm);
-			}).addClass("btn-primary"); // Makes the button blue and easy to see on a tablet
+			}).addClass("btn-primary");
 			frm.add_custom_button(__("WA"), () => {
 				generate_whatsapp_link(frm);
 			})
 				.addClass("btn-success")
 				.css({
 					border: "1px solid #25D366",
-					color: "#25D366", // Official WhatsApp Green
+					color: "#25D366",
 					"background-color": "white",
 				});
 		}
@@ -74,11 +71,10 @@ frappe.ui.form.on("Quotation", {
 			let row = locals[cdt][cdn];
 			if (!row.custom_name) {
 				return {
-					filters: { name: ["=", ""] }, // Show nothing if no mattress is selected
+					filters: { name: ["=", ""] },
 				};
 			}
 			return {
-				// Point to the new Python function we will create
 				query: "mattress_app.api.item_variant.get_available_thickness",
 				filters: {
 					item_name: row.custom_name,
@@ -90,10 +86,8 @@ frappe.ui.form.on("Quotation", {
 		if (frm.doc.party_name) {
 			frappe.db.get_value("Customer", frm.doc.party_name, "customer_type", (r) => {
 				if (r && r.customer_type === "Company") {
-					// Automatically set to 'Hotel' terms for Commercial group
 					frm.set_value("tc_name", "T&C Hotel");
 				} else {
-					// Optional: Set a default for everyone else
 					frm.set_value("tc_name", "T&C General");
 				}
 			});
@@ -103,14 +97,10 @@ frappe.ui.form.on("Quotation", {
 	discount_percentage: (frm) => frm.events.delayed_calculate(frm),
 	apply_discount_on: (frm) => frm.events.delayed_calculate(frm),
 
-	// This helper function manages the wait time
 	delayed_calculate: function (frm) {
-		// Clear existing timeout to reset the clock (Debounce)
 		if (frm.calculation_timeout) {
 			clearTimeout(frm.calculation_timeout);
 		}
-
-		// Wait 600ms for other field fetches (like item_details) to finish
 		frm.calculation_timeout = setTimeout(() => {
 			frm.events.calculate_custom_totals(frm);
 		}, 500);
@@ -123,7 +113,6 @@ frappe.ui.form.on("Quotation", {
 		let custom_mattress_items_mrp_total = 0;
 
 		(frm.doc.items || []).forEach((item) => {
-			// flt() is crucial here to handle null/undefined values during the "wait"
 			let base_amount = flt(item.amount);
 			let mrp_amount = flt(item.price_list_rate) * flt(item.qty);
 
@@ -136,8 +125,6 @@ frappe.ui.form.on("Quotation", {
 			}
 		});
 
-		// Use set_value with the third parameter as '1' if you want to avoid
-		// triggering the form's 'on_change' event recursively
 		frm.set_value("custom_non_discount_total", non_discount_total);
 		frm.set_value("custom_discount_items_total", discountable_total);
 		frm.set_value("custom_other_items_mrp_total", custom_other_items_mrp_total);
@@ -148,9 +135,7 @@ frappe.ui.form.on("Quotation", {
 		frm.refresh_field("custom_other_items_mrp_total");
 		frm.refresh_field("custom_mattress_items_mrp_total");
 	},
-	// This function name MUST match the button's Fieldname
 	custom_submit_advance: function (frm) {
-		// 1. Get all rows that haven't been submitted
 		let pending_rows = (frm.doc.custom_payment_entries || []).filter(
 			(row) => !row.payment_entry_ref
 		);
@@ -160,7 +145,6 @@ frappe.ui.form.on("Quotation", {
 			return;
 		}
 
-		// 2. Ask for confirmation
 		frappe.confirm(__("Submit all pending advances and create vouchers?"), () => {
 			pending_rows.forEach((row) => {
 				frm.trigger("create_single_voucher", row);
@@ -168,7 +152,6 @@ frappe.ui.form.on("Quotation", {
 		});
 	},
 
-	// Helper function to handle the API call for each row
 	create_single_voucher: function (frm, row) {
 		frappe.call({
 			method: "frappe.client.insert",
@@ -193,7 +176,6 @@ frappe.ui.form.on("Quotation", {
 			},
 			callback: function (r) {
 				if (!r.exc) {
-					// Update the row in the table
 					frappe.model.set_value(
 						row.doctype,
 						row.name,
@@ -212,8 +194,10 @@ frappe.ui.form.on("Quotation", {
  * VARIANT HANDLING LOGIC
  *************************************************/
 
-// Cache template lookup by Item Name
-const ITEM_NAME_TEMPLATE_CACHE = {};
+// Cache Item Group lookup by Item Name (collision-safe branch key).
+// item_name is shared across thicknesses + old variants, but all rows of a
+// given name share the SAME item_group, so branching by group is reliable.
+const ITEM_NAME_GROUP_CACHE = {};
 
 // Lock to prevent infinite loops
 const VARIANT_LOCK = {};
@@ -224,31 +208,41 @@ function calculate_item(frm, cdt, cdn) {
 	// Prevent recursion
 	if (VARIANT_LOCK[cdn]) return;
 
-	// We need the custom_name (Item Name) to proceed
+	// We need the custom_name to proceed
 	if (!row.custom_name) return;
 
-	// Fetch template info (cached)
-	if (ITEM_NAME_TEMPLATE_CACHE[row.custom_name] !== undefined) {
-		process_item_type(frm, cdt, cdn, row, ITEM_NAME_TEMPLATE_CACHE[row.custom_name]);
+	// Branch by Item Group (collision-safe). item_name is now shared across
+	// thicknesses + old variants, so variant_of by name is unreliable. But all
+	// items of a given name share the SAME item_group, so group is reliable.
+	if (ITEM_NAME_GROUP_CACHE[row.custom_name] !== undefined) {
+		route_by_group(frm, cdt, cdn, row, ITEM_NAME_GROUP_CACHE[row.custom_name]);
 	} else {
-		// Find if any item with this name is a variant
 		frappe.db
 			.get_list("Item", {
 				filters: { item_name: row.custom_name },
-				fields: ["variant_of"],
+				fields: ["item_group"],
 				limit: 1,
 			})
 			.then((res) => {
-				// If the first item found has a 'variant_of', treat the whole group as variants
-				const template_item = res.length > 0 ? res[0].variant_of : null;
-				ITEM_NAME_TEMPLATE_CACHE[row.custom_name] = template_item;
-				process_item_type(frm, cdt, cdn, row, template_item);
+				const group = res.length > 0 ? res[0].item_group : null;
+				ITEM_NAME_GROUP_CACHE[row.custom_name] = group;
+				route_by_group(frm, cdt, cdn, row, group);
 			});
 	}
 }
 
-function process_item_type(frm, cdt, cdn, row, template_item) {
-	if (template_item) {
+function route_by_group(frm, cdt, cdn, row, group) {
+	// Mattresses live in "Products" -> resolver path.
+	// Accessories (and anything else) -> non-variant path.
+	if (group === "Products") {
+		process_item_type(frm, cdt, cdn, row, true);
+	} else {
+		handle_non_variant_item(frm, cdt, cdn, row);
+	}
+}
+
+function process_item_type(frm, cdt, cdn, row, is_mattress) {
+	if (is_mattress) {
 		if (!row.custom_length || !row.custom_width || !row.custom_thickness) return;
 
 		VARIANT_LOCK[cdn] = true;
@@ -260,35 +254,61 @@ function process_item_type(frm, cdt, cdn, row, template_item) {
 				custom_width: row.custom_width,
 				custom_thickness: row.custom_thickness,
 				custom_name: row.custom_name,
+				price_list: frm.doc.selling_price_list, // use the quotation's price list
 			},
 			callback(r) {
 				if (r.message && r.message.variant_item) {
-					// ✅ SUCCESS: Variant found
-					frappe.model.set_value(cdt, cdn, {
-						item_code: r.message.variant_item,
-						custom_standard_width: r.message.selected_width,
-						custom_standard_length: r.message.selected_length,
-					});
+					// SUCCESS: item resolved (area item, or snapped fixed-price variant)
 
-					// Sync discount status and calculate totals
-					sync_non_discount_status(frm, cdt, cdn);
+					// When the item_code CHANGES (thickness/family change), ERPNext
+					// fires get_item_details natively, so the override runs on its
+					// own - no manual trigger needed. We only need to MANUALLY
+					// refresh when the item_code stays the SAME but the standard
+					// (rounded) dimensions change, because ERPNext won't refetch
+					// the price for an unchanged item_code.
+					// Only AREA-priced items share one item_code across sizes and
+					// therefore need a manual price refresh on size change. The
+					// resolver tells us via is_area. (Fixed-price items change their
+					// item_code with size, so ERPNext refetches natively.)
+					const item_code_unchanged = row.item_code === r.message.variant_item;
+					const std_dims_changed =
+						flt(row.custom_standard_length) !== flt(r.message.selected_length) ||
+						flt(row.custom_standard_width) !== flt(r.message.selected_width);
+					const need_manual_refresh =
+						r.message.is_area && item_code_unchanged && std_dims_changed;
+
+					frappe.model
+						.set_value(cdt, cdn, {
+							item_code: r.message.variant_item,
+							custom_standard_width: r.message.selected_width,
+							custom_standard_length: r.message.selected_length,
+						})
+						.then(() => {
+							VARIANT_LOCK[cdn] = false;
+							// All sizes of a family+thickness share the SAME item_code,
+							// so a size change does NOT auto-trigger ERPNext's price
+							// fetch. Trigger it ONLY when a price-relevant change
+							// happened, so the get_item_details / apply_price_list
+							// override re-runs with the new standard dimensions.
+							if (need_manual_refresh) {
+								frm.script_manager.trigger("item_code", cdt, cdn);
+							}
+							sync_non_discount_status(frm, cdt, cdn);
+						});
 				} else {
-					// ❌ NOT FOUND: Reset item-specific fields but KEEP dimensions
+					// NOT FOUND: reset item-specific fields but KEEP dimensions
 					frappe.model.set_value(cdt, cdn, {
 						custom_name: null,
 						custom_thickness: null,
 						custom_width: null,
 						custom_length: null,
 					});
-
-					// Inform the user so they know to change dimensions
 					frappe.msgprint({
-						message: "⚠️ No variant for these standard dimensions.",
+						message: "No item found for this family, thickness and size.",
 						indicator: "red",
 					});
+					VARIANT_LOCK[cdn] = false;
 				}
-
-				VARIANT_LOCK[cdn] = false;
 			},
 		});
 	} else {
@@ -300,26 +320,23 @@ function process_item_type(frm, cdt, cdn, row, template_item) {
 function handle_non_variant_item(frm, cdt, cdn, row) {
 	if (!row.custom_name) return;
 
-	// 1. Lock the row to prevent calculate_item from re-triggering
-	// when we set the item_code below
+	// Lock the row to prevent calculate_item re-triggering when we set item_code
 	VARIANT_LOCK[cdn] = true;
 
 	frappe.db
 		.get_list("Item", {
 			filters: { item_name: row.custom_name },
-			fields: ["name", "custom_discount_applicable"], // In ERPNext, the 'name' field IS the item_code
+			fields: ["name", "custom_discount_applicable"],
 			limit: 1,
 		})
 		.then((res) => {
 			if (res && res.length > 0) {
-				// 2. Set the Item Code and clear any old standard dimensions
 				frappe.model.set_value(cdt, cdn, {
 					item_code: res[0].name,
 				});
 			}
 		})
 		.finally(() => {
-			// 3. IMPORTANT: Unlock only AFTER the DB call and set_value are finished
 			VARIANT_LOCK[cdn] = false;
 		});
 }
@@ -328,11 +345,8 @@ function handle_non_variant_item(frm, cdt, cdn, row) {
 function item_code(frm, cdt, cdn) {
 	let item = locals[cdt][cdn];
 
-	// 1. First, fetch the discount status from the server
-	// We will move the total calculation INSIDE the callback of this function
 	sync_non_discount_status(frm, cdt, cdn);
 
-	// 2. Only handle the price sync here
 	setTimeout(() => {
 		if (item.price_list_rate) {
 			frappe.model.set_value(cdt, cdn, "custom_item_price_rate", item.price_list_rate);
@@ -349,11 +363,7 @@ function sync_non_discount_status(frm, cdt, cdn) {
 		args: { item_code: row.item_code },
 		callback: function (r) {
 			const is_non_discount = r.message;
-
-			// 1. Set the checkbox
 			frappe.model.set_value(cdt, cdn, "custom_non_discount_item", is_non_discount);
-
-			// 3. NOW trigger the calculation (Data is ready!)
 			frm.events.delayed_calculate(frm);
 		},
 	});
@@ -378,11 +388,9 @@ function generate_whatsapp_link(frm) {
 				frm.reload_doc();
 			},
 		});
-		return; // Wait for the reload to finish before proceeding
+		return;
 	}
-	// 2. Add a visual "Loading" freeze so the user doesn't click twice on a slow tablet
 
-	// Handle Phone Number (Checking multiple fields just in case)
 	let phone = frm.doc.contact_mobile;
 	phone = phone.replace(/\D/g, "");
 	if (!phone) {
@@ -396,13 +404,9 @@ function generate_whatsapp_link(frm) {
 	}
 
 	const customer_type = frm.doc.custom_customer_type || "Individual";
-
 	const print_format = customer_type === "Company" ? "Quotation-2" : "Quotation-1";
 	const base_url = window.location.origin;
-	// 1. Build the base of the PDF URL
 
-	// 2. MANUALLY ENCODE the internal parameters of the PDF link
-	// This is the key change: we use encodeURIComponent on the values ONLY
 	const pdf_params =
 		`?doctype=${encodeURIComponent("Quotation")}` +
 		`&name=${encodeURIComponent(frm.doc.name)}` +
@@ -411,18 +415,14 @@ function generate_whatsapp_link(frm) {
 
 	const pdf_url = base_url + "/printview" + pdf_params;
 
-	// 3. Build the message
 	const message =
 		`*Hello ${frm.doc.customer_name},*\n\n` +
 		`Please find your quotation *${frm.doc.name}*.\n\n` +
 		`*Order Pdf Link:*\n${pdf_url}`;
 
-	// 4. Encode the WHOLE message for the final WhatsApp Link
 	const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 
-	// 2. The Modern Clipboard API call
 	if (navigator.clipboard && window.isSecureContext) {
-		// Modern approach
 		navigator.clipboard
 			.writeText(url)
 			.then(() => {
@@ -435,11 +435,9 @@ function generate_whatsapp_link(frm) {
 				);
 			})
 			.catch((err) => {
-				// Fallback to Dialog if clipboard fails
 				show_manual_copy_dialog(url);
 			});
 	} else {
-		// Fallback for non-secure contexts (http) or very old browsers
 		show_manual_copy_dialog(url);
 	}
 }
@@ -454,7 +452,7 @@ function show_manual_copy_dialog(text) {
 				fieldtype: "Small Text",
 				fieldname: "copy_text",
 				default: text,
-				read_only: 0, // Leave it editable so they can select it
+				read_only: 0,
 			},
 		],
 		primary_action_label: __("Done"),
