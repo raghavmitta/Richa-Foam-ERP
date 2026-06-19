@@ -71,9 +71,13 @@ def _classify(code, item_name, variant_of, has_variants, item_group=None):
 	# 3) keyword backstop (in case an accessory was filed under Products)
 	if _is_accessory(code, item_name):
 		return 0, None, "accessory (keyword) - fixed pricing"
-	# 4) area pricing if the code matches the standard pattern...
+	# 4) area pricing if the code matches the standard VARIANT pattern...
 	if CODE_RE.match(code or ""):
 		return 1, None, "area-priced variant (matches Family-ThicknessMM-L-W)"
+	# 4b) NEW standalone area item: "Family-ThicknessMM" (no -L-W suffix),
+	#     not a variant, not a template. These are the new model's items.
+	if not variant_of and not has_variants and re.match(r"^.+-\d+MM$", code or "", re.IGNORECASE):
+		return 1, None, "area-priced standalone item (Family-ThicknessMM)"
 	# ...or if it's a template whose variants are area-priced
 	if has_variants:
 		# does ANY variant of this template match the area pattern?

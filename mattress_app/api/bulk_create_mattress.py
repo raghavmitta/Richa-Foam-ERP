@@ -35,6 +35,17 @@ def _ensure_item_name(family):
 		frappe.get_doc({"doctype": "Item Name", "item_name": family}).insert(ignore_permissions=True)
 
 
+def _hsn_for_family(family):
+	"""Fallback HSN: reuse one from an existing item of the same family, or any
+	Products item, so GST-enforced sites don't reject the new item."""
+	hsn = frappe.db.get_value("Item", {"item_name": family, "gst_hsn_code": ["is", "set"]}, "gst_hsn_code")
+	if hsn:
+		return hsn
+	return frappe.db.get_value(
+		"Item", {"item_group": "Products", "gst_hsn_code": ["is", "set"]}, "gst_hsn_code"
+	)
+
+
 def _ensure_brand(brand):
 	if brand and not frappe.db.exists("Brand", brand):
 		frappe.get_doc({"doctype": "Brand", "brand": brand}).insert(ignore_permissions=True)
@@ -125,8 +136,7 @@ def create_model(brand, model, rows, item_group=None, stock_uom=None, gst_hsn_co
 		doc.custom_thickness_link = thickness_name
 		doc.has_variants = 0
 		doc.variant_of = None
-		if gst_hsn_code:
-			doc.gst_hsn_code = gst_hsn_code
+		doc.gst_hsn_code = gst_hsn_code or _hsn_for_family(family)
 		doc.insert(ignore_permissions=True)
 
 		_set_item_price(item_code, price)
