@@ -1,6 +1,8 @@
 import frappe
 from erpnext.accounts.doctype.payment_entry.payment_entry import get_payment_entry
 
+from mattress_app.api.quotation import apply_status_for
+
 
 def validateAndLinkReferences(doc, method=None):
 	"""
@@ -181,6 +183,7 @@ def handleQuotationAmendmends(doc, methond=None):
 @frappe.whitelist()
 def updateAdvancePaidSilently(doctype, name, total_advance):
 	frappe.db.set_value(doctype, name, "advance_paid", total_advance, update_modified=False)
+	apply_status_for(doctype, name)
 
 
 def handleSoCancellation(doc, method=None):

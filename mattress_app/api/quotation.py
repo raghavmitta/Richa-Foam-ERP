@@ -1,3 +1,14 @@
+"""
+Quotation status logic - writes the FULL stage into custom_status, including
+native lifecycle states (Ordered, Cancelled, Lost, Expired) read from the
+native status field. The JS just reads custom_status and displays it.
+
+Wire in hooks.py under Quotation:
+    "validate":    "...quotation.derive_quotation_status"
+    "on_update":   "...quotation.apply_quotation_status"   (catches native status changes)
+And call apply_status_for(doctype, name) from advance_linker.updateAdvancePaidSilently.
+"""
+
 import hashlib
 import math
 import os
@@ -9,6 +20,143 @@ from frappe.utils.pdf import get_pdf
 
 LEN_STEP = 3
 WID_STEP = 6
+# Field holding the advance amount (label "Advance Paid")
+ADVANCE_FIELD = "advance_paid"
+# Option A: write to the native status field
+
+
+def _compute_status(adv, size, revisit, docstatus, native_status):
+	# Priority: native lifecycle facts ALWAYS win over the draft journey.
+	# 1) Cancelled (doc cancelled or marked Cancelled).
+	if docstatus == 2 or native_status == "Cancelled":
+		return "Cancelled"
+	# 2) Ordered / Partially Ordered (a Sales Order exists - real fact).
+	if native_status in ("Ordered", "Partially Ordered"):
+		return native_status
+	# 3) Lost / Expired (explicitly marked - win even in draft).
+	if native_status in ("Lost", "Expired"):
+		return native_status
+	# 4) Submitted (none of the above) -> Confirmed.
+	if docstatus == 1:
+		return "Confirmed"
+	# 5) DRAFT journey (from checkboxes + revisit date).
+	if adv and size:
+		return "Confirmation Pending"
+	if adv and not size:
+		return "Size Pending"
+	if size and not adv:
+		return "Advance Pending"
+	if revisit:
+		return "Revisit Pending"
+	return "Draft"
+
+
+def _derive(doc):
+	if flt(doc.get(ADVANCE_FIELD)) > 0 and not doc.get("custom_advance_received"):
+		doc.custom_advance_received = 1
+	return _compute_status(
+		bool(doc.get("custom_advance_received")),
+		bool(doc.get("custom_size_confirmed")),
+		bool(doc.get("custom_revisit_date")),
+		doc.docstatus,
+		doc.get("status"),
+	)
+
+
+def derive_quotation_status(doc, method=None):
+	"""validate hook: set custom_status from fields + native status."""
+	new_status = _derive(doc)
+	if new_status:
+		doc.custom_status = new_status
+
+
+def apply_quotation_status(doc, method=None):
+	"""on_update hook: re-sync custom_status after ERPNext changes native status
+	(e.g. when a Sales Order is created -> Ordered, or on cancel). db_set so it
+	persists without another validate cycle."""
+	new_status = _compute_status(
+		bool(doc.get("custom_advance_received")),
+		bool(doc.get("custom_size_confirmed")),
+		bool(doc.get("custom_revisit_date")),
+		doc.docstatus,
+		doc.get("status"),
+	)
+	if new_status and new_status != doc.get("custom_status"):
+		doc.db_set("custom_status", new_status, update_modified=False)
+
+
+def apply_status_for(doctype, name):
+	"""Called from the advance tracker (db.set_value bypasses validate)."""
+	if doctype != "Quotation":
+		return
+	v = frappe.db.get_value(
+		"Quotation",
+		name,
+		[
+			"advance_paid",
+			"custom_advance_received",
+			"custom_size_confirmed",
+			"custom_revisit_date",
+			"docstatus",
+			"status",
+		],
+		as_dict=True,
+	)
+	if not v:
+		return
+	adv = bool(v.custom_advance_received)
+	if flt(v.advance_paid) > 0 and not adv:
+		adv = True
+		frappe.db.set_value("Quotation", name, "custom_advance_received", 1, update_modified=False)
+	new_status = _compute_status(
+		adv,
+		bool(v.custom_size_confirmed),
+		bool(v.custom_revisit_date),
+		v.docstatus,
+		v.status,
+	)
+	if new_status:
+		frappe.db.set_value("Quotation", name, "custom_status", new_status, update_modified=False)
+
+
+def set_cancelled_status(doc, method=None):
+	"""Quotation on_cancel hook: cancellation bypasses validate/on_update, so
+	set custom_status to Cancelled here directly."""
+	doc.db_set("custom_status", "Cancelled", update_modified=False)
+
+
+def sync_quotation_from_sales_order(doc, method=None):
+	"""Sales Order on_submit / on_cancel hook.
+
+	When an SO is submitted, ERPNext sets the source quotation(s) status to
+	'Ordered' via a direct db write (bypassing the quotation's own hooks). On
+	cancel, it reverts them. Either way, re-sync each source quotation's
+	custom_status so our stored stage reflects the new native status.
+	"""
+	# Collect the source quotation names from the SO items.
+	qtns = set()
+	for it in doc.get("items") or []:
+		q = it.get("prevdoc_docname") or it.get("against_quotation")
+		if q:
+			qtns.add(q)
+	for q in qtns:
+		apply_status_for("Quotation", q)
+
+
+def require_confirmations_before_submit(doc, method=None):
+	"""before_submit hook: block submission unless BOTH advance received and
+	size confirmed are ticked."""
+	import frappe
+
+	missing = []
+	if not doc.get("custom_advance_received"):
+		missing.append("Advance Received")
+	if not doc.get("custom_size_confirmed"):
+		missing.append("Size Confirmed")
+	if missing:
+		frappe.throw(
+			"Cannot submit: please tick " + " and ".join(missing) + " before confirming this quotation."
+		)
 
 
 def get_attribute_values(attribute_name):

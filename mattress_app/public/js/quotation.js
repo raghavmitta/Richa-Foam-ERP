@@ -17,6 +17,8 @@ frappe.ui.form.on("Quotation Item", {
 frappe.ui.form.on("Quotation", {
 	refresh(frm) {
 		if (!frm.is_new()) {
+			ensure_fresh_quotation(frm);
+			show_custom_status_indicator(frm);
 			mattress_app.utils.render_advance_tracker(frm);
 			if (frm.doc.party_name && !frm.doc.custom_customer_type) {
 				frappe.db.get_value("Customer", frm.doc.party_name, "customer_type", (r) => {
@@ -421,8 +423,10 @@ function generate_whatsapp_link(frm) {
 		`*Order Pdf Link:*\n${pdf_url}`;
 
 	const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+	window.open(url, "_blank");
+}
 
-	if (navigator.clipboard && window.isSecureContext) {
+/*if (navigator.clipboard && window.isSecureContext) {
 		navigator.clipboard
 			.writeText(url)
 			.then(() => {
@@ -461,4 +465,48 @@ function show_manual_copy_dialog(text) {
 		},
 	});
 	d.show();
+}*/
+
+function show_custom_status_indicator(frm) {
+	// Native status WINS for these lifecycle states - leave the native pill.
+	const s = frm.doc.custom_status;
+	if (!s) return; // nothing custom set -> leave native indicator as-is
+
+	const colors = {
+		Draft: "red",
+		"Revisit Pending": "orange",
+		"Advance Pending": "yellow",
+		"Size Pending": "yellow",
+		"Confirmation Pending": "blue",
+		Confirmed: "green",
+		Ordered: "green",
+		"Partially Ordered": "yellow",
+		Cancelled: "red",
+		Lost: "darkgrey",
+		Expired: "grey",
+		Overdue: "red",
+	};
+	const color = colors[s] || "gray";
+	if (frm.doc.custom_status === "Revisit Pending" && frm.doc.custom_revisit_date) {
+		const today = frappe.datetime.get_today();
+		if (frm.doc.custom_revisit_date < today) {
+			frm.page.set_indicator(__("Overdue"), "red");
+			return;
+		}
+	}
+	frm.page.set_indicator(__(s), color);
+}
+
+function ensure_fresh_quotation(frm) {
+	if (frm.is_new() || frm.doc.docstatus !== 1) return;
+
+	frappe.db.get_value("Quotation", frm.doc.name, "status").then((r) => {
+		const db_status = r && r.message && r.message.status;
+		// If the live status differs from the loaded one, the cached doc is
+		// stale (e.g. a Sales Order set it to 'Ordered') -> reload to refresh
+		// the status indicator and hide the 'Create Sales Order' button.
+		if (db_status && db_status !== frm.doc.status) {
+			frm.reload_doc();
+		}
+	});
 }

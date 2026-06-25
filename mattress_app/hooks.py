@@ -24,7 +24,8 @@ app_license = "mit"
 # ]
 # In hooks.py
 app_include_js = "/assets/mattress_app/js/payment_utils.js"
-doctype_list_js = {"Item": "public/js/bulk_create_mattress.js"}
+doctype_list_js = {"Quotation": "public/js/quotation_list.js", "Item": "public/js/bulk_create_mattress.js"}
+
 doctype_js = {
 	"Quotation": "public/js/quotation.js",
 	"Sales Order": "public/js/sales_order.js",
@@ -166,25 +167,39 @@ doc_events = {
 		"before_update": "mattress_app.api.item_variant.sync_thickness_delete",
 	},
 	"Quotation": {
-		"validate": "mattress_app.api.quotation.rate_lower_warning",
+		"validate": [
+			"mattress_app.api.quotation.rate_lower_warning",
+			"mattress_app.api.quotation.derive_quotation_status",
+		],
 		"before_save": [
 			"mattress_app.api.quotation.additional_discount",
 			"mattress_app.api.whatsapp_api.generate_public_key",
 		],
-		"before_submit": "mattress_app.api.quotation.address_mandatory_check",
+		"before_submit": [
+			"mattress_app.api.quotation.address_mandatory_check",
+			"mattress_app.api.quotation.require_confirmations_before_submit",
+		],
 		"after_insert": ["mattress_app.api.advance_linker.handleQuotationAmendmends"],
 		"before_print": "mattress_app.api.whatsapp_api.validate_public_key_expiry",
 		"onload": "mattress_app.api.whatsapp_api.validate_public_key_expiry",
+		"on_update": "mattress_app.api.quotation.apply_quotation_status",
+		"on_cancel": "mattress_app.api.quotation.set_cancelled_status",
 	},
 	"Advance": {
 		"before_insert": "mattress_app.api.advance_linker.validateAndLinkReferences",
 		"after_insert": "mattress_app.api.advance_linker.processNewAdvance",
 	},
 	"Sales Order": {
-		"on_cancel": "mattress_app.api.advance_linker.handleSoCancellation",
+		"on_cancel": [
+			"mattress_app.api.advance_linker.handleSoCancellation",
+			"mattress_app.api.quotation.sync_quotation_from_sales_order",
+		],
 		"after_insert": "mattress_app.api.advance_linker.UpdateAdvanceWithSalesOrderReference",
 		"before_save": "mattress_app.api.sales_order.add_purchase_mobile",
-		"on_submit": "mattress_app.api.advance_linker.createOrUpdatePendingPaymentEntry",
+		"on_submit": [
+			"mattress_app.api.advance_linker.createOrUpdatePendingPaymentEntry",
+			"mattress_app.api.quotation.sync_quotation_from_sales_order",
+		],
 	},
 }
 
