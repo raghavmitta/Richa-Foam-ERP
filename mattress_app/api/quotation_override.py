@@ -7,19 +7,19 @@ Wire in hooks.py:
     override_doctype_class = {
         "Quotation": "mattress_app.api.quotation_override.CustomQuotation",
     }
-
-This does NOT reimplement any status logic - it just calls ERPNext's original
-method, then sets custom_status = 'Lost'. Low risk.
 """
 
+import frappe
 from erpnext.selling.doctype.quotation.quotation import Quotation
 
 
 class CustomQuotation(Quotation):
+	@frappe.whitelist()
 	def declare_enquiry_lost(self, *args, **kwargs):
-		# Run ERPNext's original 'mark as lost' logic (sets native status=Lost),
-		# passing through whatever args this ERPNext version uses.
+		# @frappe.whitelist() is REQUIRED here: overriding a whitelisted parent
+		# method without re-applying the decorator drops its whitelist status,
+		# and run_doc_method then rejects the call ('not permitted').
 		result = super().declare_enquiry_lost(*args, **kwargs)
-		# Then sync our display field so it isn't left stale.
+		# Sync our display field so it isn't left stale.
 		self.db_set("custom_status", "Lost", update_modified=False)
 		return result
