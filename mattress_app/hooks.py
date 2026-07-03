@@ -24,7 +24,11 @@ app_license = "mit"
 # ]
 # In hooks.py
 app_include_js = "/assets/mattress_app/js/payment_utils.js"
-doctype_list_js = {"Quotation": "public/js/quotation_list.js", "Item": "public/js/bulk_create_mattress.js"}
+doctype_list_js = {
+	"Quotation": "public/js/quotation_list.js",
+	"Item": "public/js/bulk_create_mattress.js",
+	"Sales Order": "public/js/sales_order_list.js",
+}
 
 doctype_js = {
 	"Quotation": "public/js/quotation.js",
@@ -34,8 +38,11 @@ doctype_js = {
 }
 
 fixtures = [
-	"Custom Field",
-	"Property Setter",
+	{"doctype": "Custom Field", "filters": [["dt", "in", ["Quotation", "Sales Order", "Sales Order Item"]]]},
+	{
+		"doctype": "Property Setter",
+		"filters": [["doc_type", "in", ["Quotation", "Sales Order", "Sales Order Item"]]],
+	},
 	{"dt": "Custom DocPerm", "filters": [["parent", "=", "Quotation"], ["role", "=", "Guest"]]},
 	{"dt": "Currency", "filters": [["name", "=", "INR"]]},
 ]
@@ -152,6 +159,11 @@ fixtures = [
 # 	"Quotation":"mattress_app.api.override.CustomQuotation",
 # }
 
+override_doctype_class = {
+	"Quotation": "mattress_app.api.quotation_override.CustomQuotation",
+}
+
+
 # Document Events
 # ---------------
 # Hook on document methods and events
@@ -193,13 +205,17 @@ doc_events = {
 		"on_cancel": [
 			"mattress_app.api.advance_linker.handleSoCancellation",
 			"mattress_app.api.quotation.sync_quotation_from_sales_order",
+			"mattress_app.api.sales_order.set_so_cancelled_status",
 		],
+		"on_update_after_submit": "mattress_app.api.sales_order.derive_status_after_submit",
 		"after_insert": "mattress_app.api.advance_linker.UpdateAdvanceWithSalesOrderReference",
 		"before_save": "mattress_app.api.sales_order.add_purchase_mobile",
 		"on_submit": [
 			"mattress_app.api.advance_linker.createOrUpdatePendingPaymentEntry",
 			"mattress_app.api.quotation.sync_quotation_from_sales_order",
 		],
+		"validate": "mattress_app.api.sales_order.derive_sales_order_status",
+		"on_update": "mattress_app.api.sales_order.derive_sales_order_status",
 	},
 }
 
@@ -238,6 +254,7 @@ override_whitelisted_methods = {
 	"erpnext.controllers.item_variant.enqueue_multiple_variant_creation": "mattress_app.api.override.custom_enqueue_multiple_variant_creation",
 	"erpnext.stock.get_item_details.get_item_details": "mattress_app.api.area_pricing.get_item_details",
 	"erpnext.stock.get_item_details.apply_price_list": "mattress_app.api.area_pricing.apply_price_list",
+	"erpnext.selling.doctype.sales_order.sales_order.update_status": "mattress_app.api.sales_order.update_status_override",
 }
 
 #

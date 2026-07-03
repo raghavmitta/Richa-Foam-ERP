@@ -20,9 +20,10 @@ const custom_colors = {
 	Ordered: "green",
 	"Partially Ordered": "yellow",
 	Cancelled: "red",
-	Lost: "darkgrey",
+	Lost: "grey",
 	Expired: "grey",
-	Overdue: "red", // Added Overdue color
+	Overdue: "red",
+	"Due Today": "blue", // Added Overdue color
 };
 
 // Controls the explicit "Status" column
@@ -33,22 +34,21 @@ frappe.listview_settings["Quotation"].get_indicator = function (doc) {
 
 	// 1. Overdue Check (Highly Specific):
 	// If the user manually set it to "Revisit Pending", check if the date has passed.
-	if (
-		doc.custom_status === "Revisit Pending" &&
-		doc.custom_revisit_date &&
-		doc.custom_revisit_date < today
-	) {
-		return [__("Overdue"), "red", "custom_revisit_date,<," + today];
+	let s = doc.custom_status;
+	if (doc.custom_status === "Revisit Pending" && doc.custom_revisit_date) {
+		if (doc.custom_revisit_date < today) {
+			s = "Overdue";
+		}
+		if (doc.custom_revisit_date === today) {
+			s = "Due Today";
+		}
+		return [__(s), custom_colors[s] || "gray", "custom_status,=," + s];
 	}
 
 	// 2. Standard Custom Status Check:
 	// If it's "Advance Pending", or if it's "Revisit Pending" but NOT overdue yet, show standard.
-	if (doc.custom_status) {
-		return [
-			__(doc.custom_status),
-			custom_colors[doc.custom_status] || "gray",
-			"custom_status,=," + doc.custom_status,
-		];
+	if (s) {
+		return [__(s), custom_colors[s] || "gray", "custom_status,=," + s];
 	}
 
 	// 3. Native Fallback (for empty/standard drafts)

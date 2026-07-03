@@ -17,8 +17,7 @@ frappe.ui.form.on("Quotation Item", {
 frappe.ui.form.on("Quotation", {
 	refresh(frm) {
 		if (!frm.is_new()) {
-			ensure_fresh_quotation(frm);
-			show_custom_status_indicator(frm);
+			sync_quotation_status_on_load(frm);
 			mattress_app.utils.render_advance_tracker(frm);
 			if (frm.doc.party_name && !frm.doc.custom_customer_type) {
 				frappe.db.get_value("Customer", frm.doc.party_name, "customer_type", (r) => {
@@ -426,50 +425,9 @@ function generate_whatsapp_link(frm) {
 	window.open(url, "_blank");
 }
 
-/*if (navigator.clipboard && window.isSecureContext) {
-		navigator.clipboard
-			.writeText(url)
-			.then(() => {
-				frappe.show_alert(
-					{
-						message: __("Link copied to clipboard!"),
-						indicator: "green",
-					},
-					5
-				);
-			})
-			.catch((err) => {
-				show_manual_copy_dialog(url);
-			});
-	} else {
-		show_manual_copy_dialog(url);
-	}
-}
-
-// Fallback function in case the browser blocks automatic copying
-function show_manual_copy_dialog(text) {
-	let d = new frappe.ui.Dialog({
-		title: __("Copy Link"),
-		fields: [
-			{
-				label: __("Copy the text below:"),
-				fieldtype: "Small Text",
-				fieldname: "copy_text",
-				default: text,
-				read_only: 0,
-			},
-		],
-		primary_action_label: __("Done"),
-		primary_action() {
-			d.hide();
-		},
-	});
-	d.show();
-}*/
-
 function show_custom_status_indicator(frm) {
 	// Native status WINS for these lifecycle states - leave the native pill.
-	const s = frm.doc.custom_status;
+	let s = frm.doc.custom_status;
 	if (!s) return; // nothing custom set -> leave native indicator as-is
 
 	const colors = {
@@ -482,31 +440,61 @@ function show_custom_status_indicator(frm) {
 		Ordered: "green",
 		"Partially Ordered": "yellow",
 		Cancelled: "red",
-		Lost: "darkgrey",
+		Lost: "grey",
 		Expired: "grey",
 		Overdue: "red",
+		"Due Today": "blue",
 	};
-	const color = colors[s] || "gray";
 	if (frm.doc.custom_status === "Revisit Pending" && frm.doc.custom_revisit_date) {
 		const today = frappe.datetime.get_today();
 		if (frm.doc.custom_revisit_date < today) {
-			frm.page.set_indicator(__("Overdue"), "red");
-			return;
+			s = "Overdue";
+		}
+		if (frm.doc.custom_revisit_date === today) {
+			s = "Due Today";
 		}
 	}
+	const color = colors[s] || "gray";
 	frm.page.set_indicator(__(s), color);
 }
 
-function ensure_fresh_quotation(frm) {
-	if (frm.is_new() || frm.doc.docstatus !== 1) return;
+function compute_quotation_status(doc) {
+	if (doc.docstatus === 2 || doc.status === "Cancelled") return "Cancelled";
+	if (["Ordered", "Partially Ordered"].includes(doc.status)) return doc.status;
+	if (["Lost", "Expired"].includes(doc.status)) return doc.status;
+	if (doc.docstatus === 1) return "Confirmed";
 
-	frappe.db.get_value("Quotation", frm.doc.name, "status").then((r) => {
-		const db_status = r && r.message && r.message.status;
-		// If the live status differs from the loaded one, the cached doc is
-		// stale (e.g. a Sales Order set it to 'Ordered') -> reload to refresh
-		// the status indicator and hide the 'Create Sales Order' button.
-		if (db_status && db_status !== frm.doc.status) {
+	const adv = doc.custom_advance_received || flt(doc.advance_paid) > 0;
+	const size = doc.custom_size_confirmed;
+	const revisit = doc.custom_revisit_date;
+
+	if (adv && size) return "Confirmation Pending";
+	if (adv && !size) return "Size Pending";
+	if (size && !adv) return "Advance Pending";
+	if (revisit) return "Revisit Pending";
+	return "Draft";
+}
+
+function sync_quotation_status_on_load(frm) {
+	if (frm.is_new()) {
+		show_custom_status_indicator(frm);
+		return;
+	}
+
+	const expected = compute_quotation_status(frm.doc);
+
+	// custom_status already correct -> just display. NO server call.
+	if (expected === frm.doc.custom_status) {
+		show_custom_status_indicator(frm);
+		return;
+	}
+
+	// Stale -> persist via db_set (server), then reload. Works on submitted docs.
+	frappe.call({
+		method: "mattress_app.api.quotation.set_custom_status",
+		args: { docname: frm.doc.name, value: expected },
+		callback: function () {
 			frm.reload_doc();
-		}
+		},
 	});
 }

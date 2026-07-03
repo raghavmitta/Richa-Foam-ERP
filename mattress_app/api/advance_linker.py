@@ -183,7 +183,12 @@ def handleQuotationAmendmends(doc, methond=None):
 @frappe.whitelist()
 def updateAdvancePaidSilently(doctype, name, total_advance):
 	frappe.db.set_value(doctype, name, "advance_paid", total_advance, update_modified=False)
-	apply_status_for(doctype, name)
+	if doctype == "Quotation":
+		apply_status_for(doctype, name)
+	elif doctype == "Sales Order":
+		from mattress_app.api.sales_order import sync_so_status
+
+		sync_so_status(name)
 
 
 def handleSoCancellation(doc, method=None):

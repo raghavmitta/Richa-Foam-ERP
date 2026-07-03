@@ -391,3 +391,52 @@ def is_non_discount_item(item_code):
 def address_mandatory_check(doc, method):
 	if not doc.address_display:
 		frappe.throw(_("Please select Address before submitting the Quotation."))
+
+
+@frappe.whitelist()
+def sync_quotation_status(docname):
+	"""Load-time sync: recompute custom_status from the quotation's current
+	fields + native status, and db-update if it drifted. Catches changes made
+	via bypass paths (e.g. 'Mark as Lost' / declare_enquiry_lost) where the
+	normal hooks don't fire."""
+	v = frappe.db.get_value(
+		"Quotation",
+		docname,
+		[
+			"advance_paid",
+			"custom_advance_received",
+			"custom_size_confirmed",
+			"custom_revisit_date",
+			"docstatus",
+			"status",
+			"custom_status",
+		],
+		as_dict=True,
+	)
+	if not v:
+		return None
+
+	adv = bool(v.custom_advance_received) or flt(v.advance_paid) > 0
+	new_status = _compute_status(
+		adv,
+		bool(v.custom_size_confirmed),
+		bool(v.custom_revisit_date),
+		v.docstatus,
+		v.status,
+	)
+	if new_status and new_status != v.custom_status:
+		frappe.db.set_value("Quotation", docname, "custom_status", new_status, update_modified=False)
+		frappe.db.commit()
+	return new_status
+
+
+@frappe.whitelist()
+def set_custom_status(docname, value):
+	"""Write custom_status directly via db_set - no save, so it works on
+	submitted quotations (no update-after-submit error) and won't be overwritten
+	by validate. Called by the client-side load sync when custom_status drifted."""
+	current = frappe.db.get_value("Quotation", docname, "custom_status")
+	if current != value:
+		frappe.db.set_value("Quotation", docname, "custom_status", value, update_modified=False)
+		frappe.db.commit()
+	return value
