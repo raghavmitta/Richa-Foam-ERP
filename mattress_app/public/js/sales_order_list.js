@@ -40,7 +40,7 @@ const _SO_NATIVE_COLORS = {
 frappe.listview_settings["Sales Order"].get_indicator = function (doc) {
 	const today = frappe.datetime.get_today();
 	let s = doc.custom_status;
-	if (["In Production", "Ready for Dispatch", "Partially Delivered"].includes(doc.status)) {
+	if (["In Production", "Ready for Dispatch", "Partially Delivered"].includes(s)) {
 		if (doc.delivery_date < today) {
 			s = "Overdue";
 		}

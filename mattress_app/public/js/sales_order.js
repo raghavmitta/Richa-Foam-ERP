@@ -127,10 +127,8 @@ function show_so_stage_indicator(frm) {
 		return;
 	}
 
-	let custom_status = frm.doc.custom_status;
-
 	// Overdue / Due Today apply only to in-progress (not delivered) stages.
-	const in_progress = ["In Production", "Ready for Dispatch", "Partially Delivered"].includes(
+	/*const in_progress = ["In Production", "Ready for Dispatch", "Partially Delivered"].includes(
 		custom_status
 	);
 	const dd = frm.doc.delivery_date;
@@ -141,10 +139,13 @@ function show_so_stage_indicator(frm) {
 		} else if (dd === today) {
 			custom_status = "Due Today";
 		}
-	}
+	}*/
 
-	if (custom_status) {
-		frm.page.set_indicator(__(custom_status), stage_colors[custom_status] || "gray");
+	if (frm.doc.custom_status) {
+		frm.page.set_indicator(
+			__(frm.doc.custom_status),
+			stage_colors[frm.doc.custom_status] || "gray"
+		);
 	}
 	// else: leave native status indicator (fallback / old flow).
 }

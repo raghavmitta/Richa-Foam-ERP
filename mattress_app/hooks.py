@@ -214,7 +214,10 @@ doc_events = {
 			"mattress_app.api.advance_linker.createOrUpdatePendingPaymentEntry",
 			"mattress_app.api.quotation.sync_quotation_from_sales_order",
 		],
-		"validate": "mattress_app.api.sales_order.derive_sales_order_status",
+		"validate": [
+			"mattress_app.api.sales_order.derive_sales_order_status",
+			"mattress_app.api.sales_order.copy_delivered_from_quotation",
+		],
 		"on_update": "mattress_app.api.sales_order.derive_sales_order_status",
 	},
 }

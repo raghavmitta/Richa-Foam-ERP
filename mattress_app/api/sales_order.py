@@ -197,3 +197,30 @@ def add_sales_person(doc):
 		if sales_person:
 			doc.set("sales_team", [])
 			doc.append("sales_team", {"sales_person": sales_person, "allocated_percentage": 100})
+
+
+def copy_delivered_from_quotation(doc, method=None):
+	"""When a Sales Order is created from a Quotation, carry each item's
+	'custom_delivered' flag forward from the source Quotation Item (e.g.
+	accessories the customer took at the visit). Only sets on items not already
+	ticked, so it never un-ticks a manual change."""
+	for it in doc.get("items") or []:
+		if it.get("custom_delivered"):
+			continue
+		src_quotation = it.get("prevdoc_docname")
+		if not src_quotation:
+			continue
+
+		# Prefer the exact source row link if present, else match by item_code.
+		src_row = it.get("prevdoc_detail_docname")
+		delivered = None
+		if src_row:
+			delivered = frappe.db.get_value("Quotation Item", src_row, "custom_delivered")
+		if delivered is None:
+			delivered = frappe.db.get_value(
+				"Quotation Item",
+				{"parent": src_quotation, "item_code": it.get("item_code")},
+				"custom_delivered",
+			)
+		if delivered:
+			it.custom_delivered = 1
