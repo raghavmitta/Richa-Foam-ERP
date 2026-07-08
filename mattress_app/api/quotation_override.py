@@ -9,10 +9,12 @@ Wire in hooks.py:
     }
 """
 
+import frappe
 from erpnext.selling.doctype.quotation.quotation import Quotation
 
 
 class CustomQuotation(Quotation):
+	@frappe.whitelist()
 	def declare_enquiry_lost(self, lost_reasons_list, competitors, detailed_reason=None):
 		# Signature matches ERPNext exactly:
 		#   (self, lost_reasons_list, competitors, detailed_reason=None)
